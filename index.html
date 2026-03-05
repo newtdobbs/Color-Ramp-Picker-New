@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:;base64,=" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color Ramp</title>
+    <script type="module" src="https://js.arcgis.com/5.0/"></script>
+
+  </head>
+  <body>
+    <calcite-shell content-behind>
+      <calcite-navigation slot="header">
+        <calcite-navigation-logo id="header-title" slot="logo" heading="Color Ramp Generator">
+          <!-- Dynamically populated -->
+        </calcite-navigation-logo>
+      </calcite-navigation>
+
+      <calcite-shell-panel slot="panel-start" display-mode="float-content">
+        <calcite-action-bar slot="action-bar" expanded>
+          <calcite-action data-action-id="layers" icon="layers" text="Layers" text-enabled></calcite-action>
+          <calcite-action data-action-id="basemaps" icon="basemap" text="Basemaps" text-enabled></calcite-action>
+          <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action>
+        </calcite-action-bar>
+
+        <!-- Map-specific panels (each one provides a div for a ArcGIS Maps SDK for JavaScript widget) -->
+        <calcite-panel heading="Layer" height-scale="l" data-panel-id="layers" id="layers-panel">
+          <calcite-input placeholder="AGOL item ID" id="input">
+          </calcite-input>
+          <calcite-label id="fields-label"></calcite-label>
+
+          <calcite-autocomplete name="layers" placeholder="Select a Layer" id="layer-selector">
+            <!-- <calcite-autocomplete-item value="apple" heading="Apple"></calcite-autocomplete-item>
+            <calcite-autocomplete-item value="banana" heading="Banana"></calcite-autocomplete-item>
+            <calcite-autocomplete-item value="cherry" heading="Cherry"></calcite-autocomplete-item>
+            <calcite-autocomplete-item value="date" heading="Date"></calcite-autocomplete-item>
+            <calcite-autocomplete-item value="elderberry" heading="Elderberry"></calcite-autocomplete-item> -->
+          </calcite-autocomplete>
+
+          <!-- Our list of item fields-->
+          <calcite-label id="fields-label"></calcite-label>
+
+          <calcite-button slot="footer" id="generate-btn" width="full">Generate Histogram</calcite-button>
+        </calcite-panel>
+
+        <calcite-panel heading="Basemaps" height-scale="l" data-panel-id="basemaps" closed closable>
+          <arcgis-basemap-gallery reference-element="mapEl"></arcgis-basemap-gallery>
+        </calcite-panel>
+     
+        <calcite-panel heading="Legend" height-scale="l" data-panel-id="legend" closed closable>
+          <arcgis-legend legend-style="classic" reference-element="mapEl"></arcgis-legend>
+        </calcite-panel>
+
+    <!-- loader for the app, will need to configyure this -->
+    <!-- <calcite-loader label="loading" text="Loading..." id="app-loader"></calcite-loader> -->
+ 
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
