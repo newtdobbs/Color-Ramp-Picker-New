@@ -8,6 +8,7 @@ import VectorTileLayer from "@arcgis/core/layers/VectorTileLayer.js";
 import esriRequest from "@arcgis/core/request.js";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 
+
 const mainMap = document.getElementById("main-map")
 // once the page loads, creat an ampty map view
 let mapView = null;
@@ -97,37 +98,43 @@ document.addEventListener("calciteActionBarToggle", event => {
 
 /* 
 LOGIC FOR INPUT DIALOG
-This will call the layer selector
+this will fire every time a new agol id is input
+We want to populate the dropdown with sublayers, and create a map
 */
+let selectedID = null;
+let serviceTitle = "";
+let serviceInfo = null;
+let selectedLayer = null;    
 if (input) {
-    let firstID = "";
-    let serviceTitle = "";
-    let serviceInfo = null;
+
     input.addEventListener("keydown", async function (event) {
         if (event.key === "Enter") {
         event.preventDefault();
 
         // hardcoding a default value --REMOVE THIS FOR DEPLOYMENT
         if (input.value == ""){
-            firstID = "c9faa265b82848498bc0a8390c0afa65" // MINC
+            selectedID = "c9faa265b82848498bc0a8390c0afa65" // MINC
         } else {
             const raw = input.value || "";
             const itemIDs = raw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
             const uniqueItemIDs = Array.from(new Set(itemIDs));
-            firstID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
+            selectedID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
         }
 
-        console.log("first id is", firstID);
+        console.log("first id is", selectedID);
 
         // check the layers present in the service
-        serviceInfo = await getServiceLayers(firstID);
+        serviceInfo = await getServiceLayers(selectedID);
 
         if (serviceInfo){
             document.getElementById("layers-panel").heading = `Layer: ${serviceInfo.title}`;
         }
 
-
+        // create a dropdown to list the sublayers
         createDropdownForService(serviceInfo.layers)
+
+        generateFieldsList(selectedLayer)
+
 
         // console.log("service layers length:", serviceLayersInfo.length);
         // const layerLabel = document.getElementById("layer-label");
@@ -141,7 +148,7 @@ if (input) {
         //     const selectedLayerId = layerSelector.selectedOption.value;
         //     console.log('selection change, creating map for selection:', layerSelector.selectedOption.label, 'at index:', selectedLayerId);
         //     // call createMap for the specific layer
-        //     currentLayer = await createMap(firstID, selectedLayerId)
+        //     currentLayer = await createMap(selectedID, selectedLayerId)
         //     });
         // } else {
         //     layerLabel.textContent = `Selected Layer: ${serviceLayersInfo[0]['NAME']}`;
@@ -162,6 +169,9 @@ if (input) {
   console.warn("input-dialog element not found in DOM.");
 }
 
+/* 
+LOGIC FOR TRAVERSING A LAYER TO GET SUBLAYERS
+*/
 async function getServiceLayers(itemId) {
     // regex check for AGOL item ID format (32 hex chars)
     
@@ -205,70 +215,127 @@ async function getServiceLayers(itemId) {
 LOGIC FOR LAYER SELECTOR
 The dropdown list should be populated AFTER the item ID is input
 */
-let selectedLayer = null;
-async function createDropdownForService(serviceLayersInfo) {
+function createDropdownForService(serviceLayersInfo) {
     const layerSelector = document.getElementById("layer-selector")
     layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
 
-    // by default, we'll use the first entry in service layers info
-    selectedLayer = serviceLayersInfo[0]; // the actual layer object, not just the name
+    // selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
 
 
     if (serviceLayersInfo.length == 1){
         layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`;
+        selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
+
     }
 
     serviceLayersInfo.forEach((serviceLayer) => {
         const layerOption = document.createElement("calcite-autocomplete-item");
-        layerOption.label = serviceLayer.name || `${serviceLayer.id}`; // use the layer id as fallback
-        layerOption.heading = serviceLayer.name || `${serviceLayer.id}`; // use the layer id as fallback
+        layerOption.label = serviceLayer.name || serviceLayer.id; // use the layer id as fallback
+        layerOption.heading = serviceLayer.name || serviceLayer.id; // use the layer id as fallback
         layerOption.value = serviceLayer.id; // the layer id as value allows us to index it in the array
 
         layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
-        layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
+        layerOption.addEventListener("calciteAutocompleteItemSelect", () => {
             selectedLayer = serviceLayer; // setting the curent layer to the selected layer
             console.log('selection change to:', selectedLayer.name, 'layer info:', selectedLayer)
             layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`; 
 
             // call to createMap if the selection changes
-            await createMap(selectedLayer)
+            createMap(selectedID, selectedLayer)
         });
     });
 
+    return selectedLayer
     // at the end here, we'll create the map for the main-map div
-    await createMap(selectedLayer)
+    // createMap(selectedLayer)
 
 }
 
 /* 
 LOGIC FOR CREATING A MAP VIEW
 */
-async function createMap(itemId, layerId) {
-  mapView.map.removeAll();
-  const layer = await createLayerFromItemId(itemId, layerId);
-  if (layer) {
-    console.log('Valid layer created from id:', itemId);
-    mapView.map.add(layer);
-    return layer;
-  } else {
-    console.error('Failed to create layer from item ID:', itemId);
-  }
+let viewMidpoint;
+async function createMap(itemId, sublayer) {
+    mapView.map.removeAll(); // first removing all layers from the current view
+    try {
+        const layer = new FeatureLayer({
+        portalItem: { id: itemId },
+        layerId: sublayer.id
+        });
+        await layer.load();
+        mapView.map.add(layer);
+        await mapView.when();
+        // console.log('layer', layer);
+
+        // zooming to the midpoint of the selected layer's visibility
+        let layerMinScale;
+        if (layer.minScale == 0){
+            layerMinScale = 1
+        } else {
+            layerMinScale = layer.minScale;
+        }
+        const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
+  
+        console.log(`Resetting view for Layer to mid scale of: ${midScale}`);
+        mapView.goTo({ scale: midScale, center: default_center });
+
+    } catch (e) {
+        console.error('Could not create/load layer from item ID:', itemId, e);
+        warnUser('Failed to create map for selected layer');
+    }
 }
 
-async function createLayerFromItemId(itemId, layerId) {
-  console.log("Creating FeatureLayer with itemId:", itemId, "layerId:", layerId);
-  try {
-    const layer = new FeatureLayer({
-      portalItem: { id: itemId },
-      layerId: layerId
-    });
-    await layer.load();
-    return layer;
-  } catch (e) {
-    console.error('Could not create/load layer from item ID:', itemId, e);
-    return null;
-  }
+/* 
+LOGIC FOR CREATING THE LIST OF FIELDS
+*/
+let selectedField;
+let listItem;
+let fieldsList;
+function generateFieldsList(focusLayer) {
+  const fieldsLabel = document.getElementById("fields-label");
+  fieldsLabel.textContent = "Select a Field";
+
+  fieldsList = document.createElement("calcite-list");
+  fieldsList.label = "Select a field";
+  fieldsList.selectionMode = "single"; // also fix typo: selectionzMode → selectionMode
+  fieldsLabel.appendChild(fieldsList);
+
+  // Clear old list items if needed
+  fieldsList.innerHTML = "";
+
+  // Can log all the fields here for debug
+  console.log("All fields:");
+  focusLayer.fields.forEach(field => {
+    console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
+  });
+
+  focusLayer.fields.forEach(field => {
+    if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
+      const listItem = document.createElement("calcite-list-item");
+      listItem.label = field.alias;
+      listItem.scale = "s";
+      listItem.value = field.name;
+      listItem.closable = true;
+
+      fieldsList.appendChild(listItem);
+
+      listItem.addEventListener("calciteListItemSelect", async () => {
+        selectedField = selectedField === field ? null : field;
+        // removing any previous warning for the user
+        if(document.querySelector("calcite-alert")){
+        document.querySelector("calcite-alert").remove();
+        }
+      });
+
+      listItem.addEventListener("calciteListItemClose", async () => {
+        console.log('removing field: ', field.alias);
+        listItem.remove();
+      });
+    }
+  });
 }
+
+
 /* 
 LOGIC FOR THE DIALOG BOX
 This should only appear after the 'generate histogram' button was clicked
@@ -279,3 +346,25 @@ const exDialogEl = document.getElementById("example-dialog");
 exButtonEl?.addEventListener("click", function() {
     exDialogEl.open = true;
 });
+
+/* 
+LOGIC FOR DIPLAYING WARNING MESSAGE
+*/
+function warnUser(message){
+  // clear any existing warnings
+  const existingAlert = document.querySelector("calcite-alert")
+  if(existingAlert) existingAlert.remove();
+
+  // displaying an alert, warning the user to turn on the overlay when taking screensbot 
+  const newAlert = document.createElement("calcite-alert");
+  newAlert.open = true;
+  newAlert.kind = "warning";
+  newAlert.autoDismiss = true;
+  const title = document.createElement("calcite-alert-message");
+  title.textContent = message;
+  title.slot = "title";
+  newAlert.appendChild(title);
+
+  // appending the warning to the DOM
+  document.body.appendChild(newAlert);
+}
