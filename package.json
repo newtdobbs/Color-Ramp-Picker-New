@@ -13,6 +13,7 @@
   "dependencies": {
     "@arcgis/core": "^5.0.9",
     "@arcgis/map-components": "^5.0.9",
-    "@esri/calcite-components": "^5.0.2"
+    "@esri/calcite-components": "^5.0.2",
+    "mathjs": "^15.1.1"
   }
 }

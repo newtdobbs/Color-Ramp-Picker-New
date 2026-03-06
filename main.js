@@ -1,12 +1,56 @@
 import "./style.css";
-import Map from "@arcgis/core/Map.js";
-import MapView from "@arcgis/core/views/MapView.js";
-import FeatureLayer from "@arcgis/core/layers/FeatureLayer.js";
-import PortalItem from "@arcgis/core/portal/PortalItem.js";
-import Basemap from "@arcgis/core/Basemap.js";
-import VectorTileLayer from "@arcgis/core/layers/VectorTileLayer.js";
-import esriRequest from "@arcgis/core/request.js";
-import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
+const Map = await $arcgis.import("@arcgis/core/Map.js");
+const MapView = await $arcgis.import("@arcgis/core/views/MapView.js");
+const FeatureLayer = await $arcgis.import("@arcgis/core/layers/FeatureLayer.js");
+const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
+const esriRequest = await $arcgis.import("@arcgis/core/request.js");
+const BasemapGallery = await $arcgis.import("@arcgis/core/widgets/BasemapGallery.js");
+const histogram = await $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
+import * as math from "mathjs";
+const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
+/* 
+LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
+because apparently its impossible in javascript
+*/
+var DecimalPrecision2 = (function() {
+    if (Number.EPSILON === undefined) {
+        Number.EPSILON = Math.pow(2, -52);
+    }
+    if (Math.sign === undefined) {
+        Math.sign = function(x) {
+            return ((x > 0) - (x < 0)) || +x;
+        };
+    }
+    return {
+        // Decimal round (half away from zero)
+        round: function(num, decimalPlaces) {
+            var p = Math.pow(10, decimalPlaces || 0);
+            var n = (num * p) * (1 + Number.EPSILON);
+            return Math.round(n) / p;
+        },
+        // Decimal ceil
+        ceil: function(num, decimalPlaces) {
+            var p = Math.pow(10, decimalPlaces || 0);
+            var n = (num * p) * (1 - Math.sign(num) * Number.EPSILON);
+            return Math.ceil(n) / p;
+        },
+        // Decimal floor
+        floor: function(num, decimalPlaces) {
+            var p = Math.pow(10, decimalPlaces || 0);
+            var n = (num * p) * (1 + Math.sign(num) * Number.EPSILON);
+            return Math.floor(n) / p;
+        },
+        // Decimal trunc
+        trunc: function(num, decimalPlaces) {
+            return (num < 0 ? this.ceil : this.floor)(num, decimalPlaces);
+        },
+        // Format using fixed-point notation
+        toFixed: function(num, decimalPlaces) {
+            return this.round(num, decimalPlaces).toFixed(decimalPlaces);
+        }
+    };
+})();
+
 
 // Specifying the ideal field types and field value types, leaving all options in for un-ommenting
 const goodFieldTypes = [
@@ -58,21 +102,24 @@ let mapFeatureLayer = null;
 
 // setting Kansas City as default center as its ~roughly~ central in US
 const default_center = [-94.66, 39.04];
-// create a basemap-only view for a given container
+
+
 async function createBasemapOnlyView() {
-  const base = new Basemap({
-    baseLayers: [
-      new VectorTileLayer({
-        portalItem: { id: "291da5eab3a0412593b66d384379f89f" },
-        title: "Light Gray Canvas Base",
-        opacity: 1,
-        visible: true
-      })
-    ]
-  });
+
+    // create a basemap-only view for a given container
+//   const base = new Basemap({
+//     baseLayers: [
+//       new VectorTileLayer({
+//         portalItem: { id: "291da5eab3a0412593b66d384379f89f" },
+//         title: "Light Gray Canvas Base",
+//         opacity: 1,
+//         visible: true
+//       })
+//     ]
+//   });
 
   const map = new Map({
-    basemap: base,
+    basemap: 'gray-vector',
     layers: []
   });
 
@@ -83,10 +130,15 @@ async function createBasemapOnlyView() {
   });
 
   await view.when();
-  view.goTo({ scale: 20000000, center: default_center });
+  view.goTo({ scale: 35000000, center: default_center });
+
+  const basemapGallery = document.querySelector("arcgis-basemap-gallery");
+  if (basemapGallery) {
+    basemapGallery.view = view; // bind the MapView directly
+  }
+
   return view;
 }
-
 // when the page loads, we'll create a basemap-only view
 (async () => {
   try {
@@ -233,6 +285,8 @@ The dropdown list should be populated AFTER the item ID is input
 function createDropdownForService(serviceLayersInfo) {
     const layerSelector = document.getElementById("layer-selector")
     layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
+    layerSelector.placeholder = 'Select a Layer';
+
 
     // selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
 
@@ -374,16 +428,17 @@ const bottomDialog = document.getElementById("bottom-dialog");
 let applyButton;
 generateButton.addEventListener("click", async () => {
 
+    // closing any pre-existing dialog so we can re-generate its contents
     if (bottomDialog.open){
         bottomDialog.open = false;
     }
 
+    // error handling if no field is selected
     console.log('selected field is:', selectedField)
     if(!selectedField){
         warnUser('Select a field from the fields list')
         return
     }
-    
 
     // resertting the dialog
     bottomDialog.textContent = "";
@@ -404,29 +459,29 @@ generateButton.addEventListener("click", async () => {
         warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
         selectedField = null;
         return
-    }
-    
-    
-    
-    
-    
-    
-    
-    
+    }   
+
+ 
+    // here well calculate statistics for the selected field of whatever the cuurentLayer is
+
+    const fieldStats =  await calculateFieldStats(mapFeatureLayer, selectedField);
+
+
+    // here we'll assemble a description of the data distribution
+    const desc = document.createElement("div");
+    desc.textContent = buildDescription();
+    desc.slot = "content-bottom";
+
+    const ramp = recommendColorRamp();
+
+    bottomDialog.appendChild(desc);
     bottomDialog.open = true;
-//   // first resetting the panel
-//   bottomPanel = document.getElementById("bottom-panel");
+  
 
 
 
-//   // otherwise, calculate stuff
-//   bottomPanel.heading = `Color Ramp Information for ${layerSelector.selectedOption.label}`;
-//   bottomPanel.description = `Selected field: ${selectedField.alias}`;
-//   bottomPanel.collapsed = false;
 
 
-//   // here well calculate statistics for the selected field of whatever the cuurentLayer is
-//   const fieldStats = await calculateFieldStats(currentLayer, selectedField);
 //   // console.log('field stats', fieldStats)
 
 //   // next we'll append that text to the description the statistics
@@ -452,6 +507,175 @@ generateButton.addEventListener("click", async () => {
 //   // bottomPanel.appendChild(applyButton);
 
 });
+
+/* 
+LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
+*/
+let statsSummary;
+async function calculateFieldStats(layer, field) {
+  const query = layer.createQuery();
+  query.where = "1=1";
+  query.outFields = [field.name];
+  query.returnGeometry = false;
+
+
+  const result = await layer.queryFeatures(query);
+  const values = result.features.map(f => f.attributes[field.name]);
+
+  let desc = "";
+
+  // can print values for debug
+  // console.log('field values:', values);
+  
+  // error handling for sparse distributions
+  if (values.length <= 10) {
+    desc = `With only ${values.length} observtaions, for now we'll refrain from calculating statistics`
+    return desc;
+  }
+
+  const fi_mean = DecimalPrecision2.round(math.mean(values), 2);
+  const fi_median = DecimalPrecision2.round(math.median(values), 2);
+  const fi_std = DecimalPrecision2.round(math.std(values), 2);
+  const fi_min = math.min(values);
+  const fi_max = math.max(values);
+  const fi_skewness = DecimalPrecision2.round(3 * (math.mean(values) - math.median(values)) / math.std(values), 2);
+
+  let fi_kurtosis;
+  if (fi_std !== 0) {
+    // excess kurtosis = average of the fourth standardized moment minus 3
+    // a normal distribution  has a kurtosis of 3
+    fi_kurtosis = DecimalPrecision2.round(math.mean(values.map(v => Math.pow((v - fi_mean) / fi_std, 4))) - 3, 2);
+  } else {
+    // if all values are identical it yields an undefined kurtosis, which we'll treat as null
+    fi_kurtosis = null;
+  }
+
+  // first skew stength
+  let skewSeverity;
+  let skewDirection;
+  // skew strength
+  if(Math.abs(fi_skewness > 0.25)) {
+    skewSeverity = "slight"
+
+    if(Math.abs(fi_skewness > 0.5)) {
+      skewSeverity = "moderate"
+
+      if(Math.abs(fi_skewness > 1)) {
+        skewSeverity = "substantial"
+        
+      }
+    }
+    // skew direction
+    if(fi_skewness > 0) {
+      skewDirection = "positive"
+    }
+    else {
+      skewDirection = "negative"
+    }  
+  } else {
+    skewSeverity = "none"
+  }
+
+  // then kurtosis
+  let kurtosisSeverity;
+  if (fi_kurtosis > 2){
+    kurtosisSeverity = "peaked"
+  } else if(fi_kurtosis < -2){
+    kurtosisSeverity = "flat"
+  } else {
+    kurtosisSeverity = "none"
+  }
+
+  // interpret modalityif possible
+  // let modalityInterp;
+
+  // assembling a dictionary of the statistics
+  statsSummary = {
+    'min' : fi_min,
+    'max' : fi_max,
+    'mean' : fi_mean,
+    'median' : fi_median,
+    'std' : fi_std,
+    'skewness' : fi_skewness,
+    'kurtosis' : fi_kurtosis,
+    'skewSeverity' : skewSeverity,
+    'skewDirection' : skewDirection,
+    'kurtosisSeverity' : kurtosisSeverity
+  }
+  
+  return statsSummary
+
+}
+
+/* 
+LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
+*/
+function buildDescription(){
+
+    const descParts = []
+
+    descParts.push(`${selectedField.alias} has a value range of ${statsSummary.min.toLocaleString()} to ${statsSummary.max.toLocaleString()}, with a mean of ${statsSummary.mean.toLocaleString()} and a median of ${statsSummary.median.toLocaleString()}`);
+
+    // skew
+    if (statsSummary.skewSeverity && statsSummary.skewSeverity.toLowerCase() !== "none"){
+        descParts.push(`The distribution has a skewness of ${statsSummary.skewness}, exhibiting ${statsSummary.skewSeverity} ${statsSummary.skewDirection} skew.`);
+    } else{
+        descParts.push('The distribution shows no noticeable skew.');
+    }
+
+    // kurtosis
+    if (statsSummary.kurtosisSeverity && statsSummary.kurtosisSeverity.toLowerCase() !== 'none'){
+        descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, indicating a ${statsSummary.kurtosisSeverity} distribution.`)
+    } else{
+        descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, approximately normal.`);
+    }
+    
+    return descParts.join(" ");
+
+}
+
+
+
+/* 
+LOGIC FOR RECOMMENDING A COLORRAMP
+*/
+function recommendColorRamp(){
+
+    /* 
+    // theme matching rulset
+    left skewed: above (emphasize high values)
+    right skewed: below (emphasize low values)
+    high kurtosis: above-and-below (narrow central gap)
+    low kurtosis: extremes (wider central gap)
+    approximately normal: centered on?
+    */
+
+
+    // "high-to-low" | "above-and-below" | "centered-on" | "extremes" | "above" | "below"
+
+    const themes = getThemes({
+        basemap: mapView.map.basemap,
+        geometryType: mapFeatureLayer.geometryType,
+
+    });
+    
+    
+    console.log("Theme recommendations:", themes);
+    
+    const schemes = getSchemes({
+        basemap: mapView.map.basemap,
+        geometryType: mapFeatureLayer.geometryType,
+    });
+    console.log("SCHEME recommendations:", schemes);
+
+
+    // match based on ruleset
+
+    // make call to getColorTheme()
+    // basaemap accessed with mapView.map.basemap
+
+    return colorRampRec
+}
 
 /* 
 LOGIC FOR DIPLAYING WARNING MESSAGE

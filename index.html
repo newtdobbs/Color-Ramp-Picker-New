@@ -23,14 +23,14 @@
           <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action>
         </calcite-action-bar>
 
-        <calcite-panel heading="Layer" scale="l" data-panel-id="layers" id="layers-panel">
+        <calcite-panel heading="Layer" scale="l" data-panel-id="layers" id="layers-panel" closable>
           <calcite-input placeholder="AGOL item ID" id="input">
           </calcite-input>
 
           <!-- empty label for spacing -->
           <calcite-label class="empty-label"></calcite-label>
           
-          <calcite-autocomplete name="layers" placeholder="Select a Layer" id="layer-selector">
+          <calcite-autocomplete name="layers" placeholder="" id="layer-selector">
           </calcite-autocomplete>
           
           <!-- empty label for spacing -->
@@ -41,12 +41,12 @@
           <calcite-button slot="footer" id="generate-btn" width="full">Generate Histogram</calcite-button>
         </calcite-panel>
 
-        <calcite-panel heading="Basemaps" height-scale="l" data-panel-id="basemaps" closed closable>
-          <arcgis-basemap-gallery reference-element="mapEl"></arcgis-basemap-gallery>
+         <calcite-panel heading="Basemaps" scale="l" data-panel-id="basemaps" closed closable>
+          <arcgis-basemap-gallery></arcgis-basemap-gallery>
         </calcite-panel>
      
-        <calcite-panel heading="Legend" height-scale="l" data-panel-id="legend" closed closable>
-          <arcgis-legend legend-style="classic" reference-element="mapEl"></arcgis-legend>
+        <calcite-panel heading="Legend" scale="l" data-panel-id="legend" closed closable>
+          <arcgis-legend legend-style="classic" reference-element="main-map"></arcgis-legend>
         </calcite-panel>
 
 
