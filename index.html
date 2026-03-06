@@ -27,8 +27,10 @@
         <calcite-panel heading="Layer" height-scale="l" data-panel-id="layers" id="layers-panel">
           <calcite-input placeholder="AGOL item ID" id="input">
           </calcite-input>
-          <calcite-label id="fields-label"></calcite-label>
 
+          <!-- empty label for spacing -->
+          <calcite-label id="empty-label"></calcite-label>
+          
           <calcite-autocomplete name="layers" placeholder="Select a Layer" id="layer-selector">
             <!-- <calcite-autocomplete-item value="apple" heading="Apple"></calcite-autocomplete-item>
             <calcite-autocomplete-item value="banana" heading="Banana"></calcite-autocomplete-item>
@@ -36,8 +38,10 @@
             <calcite-autocomplete-item value="date" heading="Date"></calcite-autocomplete-item>
             <calcite-autocomplete-item value="elderberry" heading="Elderberry"></calcite-autocomplete-item> -->
           </calcite-autocomplete>
-
+          
+          <!-- empty label for spacing -->
           <!-- Our list of item fields-->
+          <calcite-label id="empty-label"></calcite-label>
           <calcite-label id="fields-label"></calcite-label>
 
           <calcite-button slot="footer" id="generate-btn" width="full">Generate Histogram</calcite-button>

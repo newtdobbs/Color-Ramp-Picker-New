@@ -8,10 +8,54 @@ import VectorTileLayer from "@arcgis/core/layers/VectorTileLayer.js";
 import esriRequest from "@arcgis/core/request.js";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 
+// Specifying the ideal field types and field value types, leaving all options in for un-ommenting
+const goodFieldTypes = [
+  "small-integer",
+  "integer",
+  "single",
+  "double",
+  "long",
+  // "string",
+  // "date",
+  // "oid",
+  // "geometry",
+  // "blob",
+  // "raster",
+  // "guid",
+  // "global-id",
+  // "xml",
+  "big-integer",
+  // "date-only",
+  // "time-only",
+  // "timestamp-offset"
+];
+
+const goodFieldValueTypes = [
+  // "binary",
+  // "coordinate",
+  "count-or-amount",
+  "currency",
+  // "date-and-time",
+  // "description",
+  // "email-address",
+  // "location-or-place-name",
+  // "measurement",
+  // "name-or-title",
+  // "none",
+  // "ordered-or-ranked",
+  "percentage-or-ratio",
+  // "phone-number",
+  // "type-or-category",
+  // "unique-identifier"
+];
 
 const mainMap = document.getElementById("main-map")
 // once the page loads, creat an ampty map view
 let mapView = null;
+
+// we'll focus on 1 layer at a time
+let mapFeatureLayer = null;
+
 // setting Kansas City as default center as its ~roughly~ central in US
 const default_center = [-94.66, 39.04];
 // create a basemap-only view for a given container
@@ -133,35 +177,6 @@ if (input) {
         // create a dropdown to list the sublayers
         createDropdownForService(serviceInfo.layers)
 
-        generateFieldsList(selectedLayer)
-
-
-        // console.log("service layers length:", serviceLayersInfo.length);
-        // const layerLabel = document.getElementById("layer-label");
-        // if (serviceLayersInfo.length > 1) {
-        //     layerLabel.textContent = "Select a Layer";
-        //     layerSelector = document.createElement("calcite-select");
-        //     createDropdownForService(serviceLayersInfo);
-        //     layerLabel.appendChild(layerSelector);
-        //         // event handler for when a list item is removed
-        //     layerSelector.addEventListener("calciteSelectChange", async () => {
-        //     const selectedLayerId = layerSelector.selectedOption.value;
-        //     console.log('selection change, creating map for selection:', layerSelector.selectedOption.label, 'at index:', selectedLayerId);
-        //     // call createMap for the specific layer
-        //     currentLayer = await createMap(selectedID, selectedLayerId)
-        //     });
-        // } else {
-        //     layerLabel.textContent = `Selected Layer: ${serviceLayersInfo[0]['NAME']}`;
-        // }
-
-        // // Wait for the layer to be created and loaded
-        // currentLayer = await createMap(firstID, serviceLayersInfo[0].id)
-
-        // if (currentLayer) {
-        //     await currentLayer.load(); // ensure fields are available
-        //     populateListGroup(currentLayer);
-        // }
-
         input.value = "";
         }
     });
@@ -263,21 +278,23 @@ async function createMap(itemId, sublayer) {
         layerId: sublayer.id
         });
         await layer.load();
+        mapFeatureLayer = layer;
         mapView.map.add(layer);
         await mapView.when();
-        // console.log('layer', layer);
 
         // zooming to the midpoint of the selected layer's visibility
-        let layerMinScale;
-        if (layer.minScale == 0){
-            layerMinScale = 1
-        } else {
-            layerMinScale = layer.minScale;
-        }
-        const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
+        // let layerMinScale;
+        // if (layer.minScale == 0){
+        //     layerMinScale = 1
+        // } else {
+        //     layerMinScale = layer.minScale;
+        // }
+        // const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
   
-        console.log(`Resetting view for Layer to mid scale of: ${midScale}`);
-        mapView.goTo({ scale: midScale, center: default_center });
+        // console.log(`Resetting view for Layer to mid scale of: ${midScale}`);
+        // mapView.goTo({ scale: midScale, center: default_center });
+
+        generateFieldsList(mapFeatureLayer)
 
     } catch (e) {
         console.error('Could not create/load layer from item ID:', itemId, e);
@@ -292,6 +309,7 @@ let selectedField;
 let listItem;
 let fieldsList;
 function generateFieldsList(focusLayer) {
+
   const fieldsLabel = document.getElementById("fields-label");
   fieldsLabel.textContent = "Select a Field";
 
@@ -304,10 +322,10 @@ function generateFieldsList(focusLayer) {
   fieldsList.innerHTML = "";
 
   // Can log all the fields here for debug
-  console.log("All fields:");
-  focusLayer.fields.forEach(field => {
-    console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
-  });
+//   console.log("All fields:");
+//   focusLayer.fields.forEach(field => {
+//     console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
+//   });
 
   focusLayer.fields.forEach(field => {
     if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
