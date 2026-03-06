@@ -18,30 +18,24 @@
 
       <calcite-shell-panel slot="panel-start" display-mode="float-content">
         <calcite-action-bar slot="action-bar" expanded>
-          <calcite-action data-action-id="layers" icon="layers" text="Layers" text-enabled></calcite-action>
+          <calcite-action data-action-id="layer" icon="layers" text="Layers" text-enabled></calcite-action>
           <calcite-action data-action-id="basemaps" icon="basemap" text="Basemaps" text-enabled></calcite-action>
           <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action>
         </calcite-action-bar>
 
-        <!-- Map-specific panels (each one provides a div for a ArcGIS Maps SDK for JavaScript widget) -->
-        <calcite-panel heading="Layer" height-scale="l" data-panel-id="layers" id="layers-panel">
+        <calcite-panel heading="Layer" scale="l" data-panel-id="layers" id="layers-panel">
           <calcite-input placeholder="AGOL item ID" id="input">
           </calcite-input>
 
           <!-- empty label for spacing -->
-          <calcite-label id="empty-label"></calcite-label>
+          <calcite-label class="empty-label"></calcite-label>
           
           <calcite-autocomplete name="layers" placeholder="Select a Layer" id="layer-selector">
-            <!-- <calcite-autocomplete-item value="apple" heading="Apple"></calcite-autocomplete-item>
-            <calcite-autocomplete-item value="banana" heading="Banana"></calcite-autocomplete-item>
-            <calcite-autocomplete-item value="cherry" heading="Cherry"></calcite-autocomplete-item>
-            <calcite-autocomplete-item value="date" heading="Date"></calcite-autocomplete-item>
-            <calcite-autocomplete-item value="elderberry" heading="Elderberry"></calcite-autocomplete-item> -->
           </calcite-autocomplete>
           
           <!-- empty label for spacing -->
           <!-- Our list of item fields-->
-          <calcite-label id="empty-label"></calcite-label>
+          <calcite-label class="empty-label"></calcite-label>
           <calcite-label id="fields-label"></calcite-label>
 
           <calcite-button slot="footer" id="generate-btn" width="full">Generate Histogram</calcite-button>
@@ -58,6 +52,11 @@
 
       </calcite-shell-panel>
       <div class="map-frame" id="main-map"></div>
+      <calcite-dialog width="l" heading="" id="bottom-dialog" placement="bottom" drag-enabled resizable>
+          <calcite-button slot="footer-end" class="example-dialog-button">
+            Copy Color Ramp JSON
+        </calcite-button>
+      </calcite-dialog>
     </calcite-shell>
 
     <!-- loader for the app, will need to configyure this -->

@@ -341,12 +341,16 @@ function generateFieldsList(focusLayer) {
         selectedField = selectedField === field ? null : field;
         // removing any previous warning for the user
         if(document.querySelector("calcite-alert")){
-        document.querySelector("calcite-alert").remove();
+            document.querySelector("calcite-alert").remove();
         }
       });
 
       listItem.addEventListener("calciteListItemClose", async () => {
         console.log('removing field: ', field.alias);
+        if (selectedField.alias == field.alias){
+            selectedField = null;
+            // warnUser('Select a field from the fields list')
+        }
         listItem.remove();
       });
     }
@@ -363,6 +367,90 @@ const exDialogEl = document.getElementById("example-dialog");
 
 exButtonEl?.addEventListener("click", function() {
     exDialogEl.open = true;
+});
+// functionality to handle the generate button
+const generateButton = document.getElementById("generate-btn");
+const bottomDialog = document.getElementById("bottom-dialog");
+let applyButton;
+generateButton.addEventListener("click", async () => {
+
+    if (bottomDialog.open){
+        bottomDialog.open = false;
+    }
+
+    console.log('selected field is:', selectedField)
+    if(!selectedField){
+        warnUser('Select a field from the fields list')
+        return
+    }
+    
+
+    // resertting the dialog
+    bottomDialog.textContent = "";
+
+    bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
+
+    console.log('generate clicked')
+    // if there's nothing selected,warn user
+
+    //if its non-numeric warn user
+    if(!goodFieldTypes.includes(selectedField.type)){
+        warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
+        selectedField = null;
+        return
+    }
+    // // make sure its not just a Geoid, uniqueid, make sure its a DATA field
+    if(!goodFieldValueTypes.includes(selectedField.valueType)){
+        warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
+        selectedField = null;
+        return
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    bottomDialog.open = true;
+//   // first resetting the panel
+//   bottomPanel = document.getElementById("bottom-panel");
+
+
+
+//   // otherwise, calculate stuff
+//   bottomPanel.heading = `Color Ramp Information for ${layerSelector.selectedOption.label}`;
+//   bottomPanel.description = `Selected field: ${selectedField.alias}`;
+//   bottomPanel.collapsed = false;
+
+
+//   // here well calculate statistics for the selected field of whatever the cuurentLayer is
+//   const fieldStats = await calculateFieldStats(currentLayer, selectedField);
+//   // console.log('field stats', fieldStats)
+
+//   // next we'll append that text to the description the statistics
+//   bottomPanel.textContent = fieldStats;
+
+
+//   // then we'll match the description to a colorscheme
+
+
+
+
+//   // then we'll create a histogram
+//   const hist = await createHistogram();
+//   bottomPanel.appendChild(hist);
+
+//   // console.log('Histogram should be visivke')
+//   // bottomPanel.textContent = await createHistogram(currentLayer, selectedField);
+
+//   // we may not need this buuton, could be used instead to export colorscheme JSON
+//   // applyButton = document.createElement("calcite-button");
+//   // applyButton.slot = "footer-end";
+//   // applyButton.textContent = "Apply Colorscale";
+//   // bottomPanel.appendChild(applyButton);
+
 });
 
 /* 
