@@ -8,6 +8,7 @@ const BasemapGallery = await $arcgis.import("@arcgis/core/widgets/BasemapGallery
 const histogram = await $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
 import * as math from "mathjs";
 const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
+
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
 because apparently its impossible in javascript
@@ -119,7 +120,7 @@ async function createBasemapOnlyView() {
 //   });
 
   const map = new Map({
-    basemap: 'gray-vector',
+    basemap: 'dark-gray-vector',
     layers: []
   });
 
@@ -567,13 +568,14 @@ async function calculateFieldStats(layer, field) {
     }
     // skew direction
     if(fi_skewness > 0) {
-      skewDirection = "positive"
+      skewDirection = "positive" // AKA right skew
     }
     else {
-      skewDirection = "negative"
+      skewDirection = "negative" // AKA left skew
     }  
   } else {
     skewSeverity = "none"
+    skewDirection = "none"
   }
 
   // then kurtosis
@@ -650,31 +652,50 @@ function recommendColorRamp(){
     approximately normal: centered on?
     */
 
+    let schemeTheme;
+    let flipRamp = false;
+
+    // we'll start with non-skewed, slightly skewed, or moderately skewed
+    if(statsSummary.skewDirection != "substantial") {
+        // for high kurtosis, we'll use above an below
+        if (statsSummary.kurtosisSeverity == "peaked") {
+            schemeTheme = "above-and-below"
+        // for very low kurtosis, we'll use extremes
+        } else if (statsSummary.kurtosisSeverity == "flat") {
+            schemeTheme = "extremes"
+        // for normal, we'll default to centered-on
+        } else
+
+        // 
+    } else { // if the distribution is highly skewed, we'll fall back to high-to-low
+        schemeTheme = "high-to-low"
+        // for right skew, we'll flip the ramp to emphasize low values
+        if (statsSummary.skewDirection == "positive"){
+            flipRamp = true;
+        }
+    }
+
 
     // "high-to-low" | "above-and-below" | "centered-on" | "extremes" | "above" | "below"
 
-    const themes = getThemes({
-        basemap: mapView.map.basemap,
-        geometryType: mapFeatureLayer.geometryType,
+    if (!mapView || !mapView.map || !mapFeatureLayer) {
+        console.warn("MapView or FeatureLayer not ready");
+        return null;
+    }
 
-    });
-    
-    
+    const bm = mapView.map.basemap;
+
+    const themes = getThemes(mapView.map.basemap);
     console.log("Theme recommendations:", themes);
-    
+
     const schemes = getSchemes({
         basemap: mapView.map.basemap,
         geometryType: mapFeatureLayer.geometryType,
+        theme: schemeTheme
     });
-    console.log("SCHEME recommendations:", schemes);
+    console.log("Scheme recommendations:", schemes);
 
-
-    // match based on ruleset
-
-    // make call to getColorTheme()
-    // basaemap accessed with mapView.map.basemap
-
-    return colorRampRec
+    return colorRampRec;
 }
 
 /* 
