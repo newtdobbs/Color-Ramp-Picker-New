@@ -12,7 +12,7 @@ const histogram = await  $arcgis.import("@arcgis/core/smartMapping/statistics/hi
 const Color = await $arcgis.import("@arcgis/core/Color.js");
 const intl = await $arcgis.import("@arcgis/core/intl.js");
 import * as math from "mathjs";
-const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
+const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme, getMatchingShemes } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
 const { all, names, byName, byTag } = await $arcgis.import("@arcgis/core/smartMapping/symbology/support/colorRamps.js");
 
 /* 
@@ -126,7 +126,7 @@ async function createBasemapOnlyView() {
 //   });
 
   const map = new Map({
-    basemap: 'dark-gray-vector',
+    basemap: 'gray-vector',
     layers: []
   });
 
@@ -581,10 +581,10 @@ async function calculateFieldStats(layer, field) {
     }
     // skew direction
     if(fi_skewness > 0) {
-      skewDirection = "positive" // AKA right skew
+      skewDirection = "positive (right)" // AKA right skew
     }
     else {
-      skewDirection = "negative" // AKA left skew
+      skewDirection = "negative (left)" // AKA left skew
     }  
   } else {
     skewSeverity = "none"
@@ -659,21 +659,25 @@ async function createHistogramForField(ramp){
     colorSlider.addEventListener("arcgisThumbDrag", updateRendererFromSlider);
     colorSlider.addEventListener("arcgisPropertyChange", updateRendererFromSlider);
 
-    // const definedScheme = byName(ramp)
-    const definedScheme = colorSymbology.getSchemeByName("Purple and Green 10");
+    const matchingScheme = getSchemeByName({
+        basemap: mapView.map.basemap,
+        geometryType: mapFeatureLayer.geometryType,
+        theme: "above-and-below",
+        name: "Purple and Green 10"
+    });
 
-    
+
     const colorParams = {
         view: mapView,
         layer: mapFeatureLayer,
         field: selectedField.name,
-        // // theme: "above-and-below",
-        // colorScheme: "Purple and Green 10"
+        theme: "above-and-below",
+        colorScheme: matchingScheme
     }
 
-    console.log('ccreating continuoous renderer with params', colorParams)
-
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
+
+    console.log("renderer result", rendererResult)
 
     // set the renderer to the layer and add it to the map
     const vv = rendererResult.visualVariable;
@@ -687,22 +691,20 @@ async function createHistogramForField(ramp){
 
     // create reference to histogram bar elements for updating
     // their style as the user drags slider thumbs
-    console.log('onfiguring hist')
- 
+    
     const bars = [];
     const histogramConfig = {
-    average: statsSummary.mean,
-    barCreatedFunction: (index, element) => {
-        const bin = histogramResult.bins[index];
-        const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
-        const color = getColorFromValue(colorSlider.stops, midValue);
-        element.setAttribute("fill", color.toHex());
-        bars.push(element);
-    },
-    bins: histogramResult.bins,
-    standardDeviation: statsSummary.std,
+        average: statsSummary.mean,
+        barCreatedFunction: (index, element) => {
+            const bin = histogramResult.bins[index];
+            const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
+            const color = getColorFromValue(colorSlider.stops, midValue);
+            element.setAttribute("fill", color.toHex());
+            bars.push(element);
+        },
+        bins: histogramResult.bins,
+        standardDeviation: statsSummary.std,
     };
-    console.log('updating renderer')
 
     colorSlider.updateFromRendererResult(rendererResult, histogramResult);
     colorSlider.histogramConfig = histogramConfig;
@@ -765,7 +767,10 @@ async function createHistogramForField(ramp){
 
         return Color.blendColors(minStop.color, maxStop.color, weightedPosition);
     }
-    
+    console.log('COLOR SLIDER', colorSlider);
+
+    console.log('color stops:', colorSlider.stops)
+
     return colorSlider;
 
 }
