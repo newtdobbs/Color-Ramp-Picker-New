@@ -5,9 +5,15 @@ const FeatureLayer = await $arcgis.import("@arcgis/core/layers/FeatureLayer.js")
 const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
 const BasemapGallery = await $arcgis.import("@arcgis/core/widgets/BasemapGallery.js");
-const histogram = await $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
+// const histogram = await $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
+const colorSymbology = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
+const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
+const histogram = await  $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
+const Color = await $arcgis.import("@arcgis/core/Color.js");
+const intl = await $arcgis.import("@arcgis/core/intl.js");
 import * as math from "mathjs";
 const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
+const { all, names, byName, byTag } = await $arcgis.import("@arcgis/core/smartMapping/symbology/support/colorRamps.js");
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -151,9 +157,12 @@ async function createBasemapOnlyView() {
 
 
 
-let activeWidget;
+// initializing active widget to basemaps, as its open on page load
+let activeWidget = "layers";
 
  const handleActionBarClick = ({ target }) => {
+
+    console.log("active widget is currently:", activeWidget)
     if (target.tagName !== "CALCITE-ACTION") {
         return;
     }
@@ -165,6 +174,8 @@ let activeWidget;
 
     const nextWidget = target.dataset.actionId;
     if (nextWidget !== activeWidget) {
+
+
         document.querySelector(`[data-action-id=${nextWidget}]`).active = true;
         document.querySelector(`[data-panel-id=${nextWidget}]`).closed = false;
         activeWidget = nextWidget;
@@ -473,13 +484,15 @@ generateButton.addEventListener("click", async () => {
     desc.textContent = buildDescription();
     desc.slot = "content-bottom";
 
-    const ramp = recommendColorRamp();
-
     bottomDialog.appendChild(desc);
     bottomDialog.open = true;
   
 
-
+    // we'll pass the ramp as an arg, so that way we can even recommend a ramp
+    // const specifiedRamp = byName("Purple and Green 10") 
+    const hist = await createHistogramForField("Purple and Green 10")
+    console.log("histogram is:", hist)    
+    bottomDialog.appendChild(hist); 
 
 
 
@@ -636,67 +649,187 @@ function buildDescription(){
 
 }
 
+async function createHistogramForField(ramp){
+    const colorSlider = document.createElement("arcgis-slider-color-legacy");
+    colorSlider.componentOnReady();
+
+    // listen to arcgisThumbChange and arcgisThumbDrag events
+    // update the layer's renderer to match the slider's color stops
+    colorSlider.addEventListener("arcgisThumbChange", updateRendererFromSlider);
+    colorSlider.addEventListener("arcgisThumbDrag", updateRendererFromSlider);
+    colorSlider.addEventListener("arcgisPropertyChange", updateRendererFromSlider);
+
+    // const definedScheme = byName(ramp)
+    const definedScheme = colorSymbology.getSchemeByName("Purple and Green 10");
+
+    
+    const colorParams = {
+        view: mapView,
+        layer: mapFeatureLayer,
+        field: selectedField.name,
+        // // theme: "above-and-below",
+        // colorScheme: "Purple and Green 10"
+    }
+
+    console.log('ccreating continuoous renderer with params', colorParams)
+
+    const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
+
+    // set the renderer to the layer and add it to the map
+    const vv = rendererResult.visualVariable;
+    mapFeatureLayer.renderer = rendererResult.renderer;
+    mapFeatureLayer.visible = true;
+
+    const histogramResult = await histogram({
+        ...colorParams,
+        numBins: 60,
+    });
+
+    // create reference to histogram bar elements for updating
+    // their style as the user drags slider thumbs
+    console.log('onfiguring hist')
+ 
+    const bars = [];
+    const histogramConfig = {
+    average: statsSummary.mean,
+    barCreatedFunction: (index, element) => {
+        const bin = histogramResult.bins[index];
+        const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
+        const color = getColorFromValue(colorSlider.stops, midValue);
+        element.setAttribute("fill", color.toHex());
+        bars.push(element);
+    },
+    bins: histogramResult.bins,
+    standardDeviation: statsSummary.std,
+    };
+    console.log('updating renderer')
+
+    colorSlider.updateFromRendererResult(rendererResult, histogramResult);
+    colorSlider.histogramConfig = histogramConfig;
+    colorSlider.labelFormatFunction = (value) => {
+        return DecimalPrecision2.round(value, 2); // labeling our histogram bars with 2 decimals
+    };
+
+    // update rendererFromSlider will be nested, specific to each new colorslider we create with variable scope
+    function updateRendererFromSlider() {
+        const renderer = mapFeatureLayer.renderer.clone();
+        const colorVariable = renderer.visualVariables[0].clone();
+        colorVariable.stops = colorSlider.stops;
+        renderer.visualVariables = [colorVariable];
+        mapFeatureLayer.renderer = renderer;
+
+        bars.forEach((bar, index) => {
+            const bin = colorSlider.histogramConfig.bins[index];
+            if (bin) {
+            const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
+            const color = getColorFromValue(colorSlider.stops, midValue);
+            bar.setAttribute("fill", color.toHex());
+            }
+        });
+    }
+        // infers the color for a given value
+    // based on the stops from a ColorVariable
+    function getColorFromValue(stops, value) {
+        let minStop = stops[0];
+        let maxStop = stops[stops.length - 1];
+
+        const minStopValue = minStop.value;
+        const maxStopValue = maxStop.value;
+
+        if (value < minStopValue) {
+            return minStop.color;
+        }
+
+        if (value > maxStopValue) {
+            return maxStop.color;
+        }
+
+        const exactMatches = stops.filter((stop) => {
+            return stop.value === value;
+        });
+
+        if (exactMatches.length > 0) {
+            return exactMatches[0].color;
+        }
+
+        minStop = null;
+        maxStop = null;
+        stops.forEach((stop, i) => {
+            if (!minStop && !maxStop && stop.value >= value) {
+            minStop = stops[i - 1];
+            maxStop = stop;
+            }
+        });
+
+        const weightedPosition = (value - minStop.value) / (maxStop.value - minStop.value);
+
+        return Color.blendColors(minStop.color, maxStop.color, weightedPosition);
+    }
+    
+    return colorSlider;
+
+}
 
 
 /* 
 LOGIC FOR RECOMMENDING A COLORRAMP
 */
-function recommendColorRamp(){
+// function recommendColorRamp(){
 
-    /* 
-    // theme matching rulset
-    left skewed: above (emphasize high values)
-    right skewed: below (emphasize low values)
-    high kurtosis: above-and-below (narrow central gap)
-    low kurtosis: extremes (wider central gap)
-    approximately normal: centered on?
-    */
+//     /* 
+//     // theme matching rulset
+//     left skewed: above (emphasize high values)
+//     right skewed: below (emphasize low values)
+//     high kurtosis: above-and-below (narrow central gap)
+//     low kurtosis: extremes (wider central gap)
+//     approximately normal: centered on?
+//     */
 
-    let schemeTheme;
-    let flipRamp = false;
+//     let schemeTheme;
+//     let flipRamp = false;
 
-    // we'll start with non-skewed, slightly skewed, or moderately skewed
-    if(statsSummary.skewDirection != "substantial") {
-        // for high kurtosis, we'll use above an below
-        if (statsSummary.kurtosisSeverity == "peaked") {
-            schemeTheme = "above-and-below"
-        // for very low kurtosis, we'll use extremes
-        } else if (statsSummary.kurtosisSeverity == "flat") {
-            schemeTheme = "extremes"
-        // for normal, we'll default to centered-on
-        } else
+//     // we'll start with non-skewed, slightly skewed, or moderately skewed
+//     if(statsSummary.skewDirection != "substantial") {
+//         // for high kurtosis, we'll use above an below
+//         if (statsSummary.kurtosisSeverity == "peaked") {
+//             schemeTheme = "above-and-below"
+//         // for very low kurtosis, we'll use extremes
+//         } else if (statsSummary.kurtosisSeverity == "flat") {
+//             schemeTheme = "extremes"
+//         // for normal, we'll default to centered-on
+//         } else
 
-        // 
-    } else { // if the distribution is highly skewed, we'll fall back to high-to-low
-        schemeTheme = "high-to-low"
-        // for right skew, we'll flip the ramp to emphasize low values
-        if (statsSummary.skewDirection == "positive"){
-            flipRamp = true;
-        }
-    }
+//         // 
+//     } else { // if the distribution is highly skewed, we'll fall back to high-to-low
+//         schemeTheme = "high-to-low"
+//         // for right skew, we'll flip the ramp to emphasize low values
+//         if (statsSummary.skewDirection == "positive"){
+//             flipRamp = true;
+//         }
+//     }
 
 
-    // "high-to-low" | "above-and-below" | "centered-on" | "extremes" | "above" | "below"
+//     // "high-to-low" | "above-and-below" | "centered-on" | "extremes" | "above" | "below"
 
-    if (!mapView || !mapView.map || !mapFeatureLayer) {
-        console.warn("MapView or FeatureLayer not ready");
-        return null;
-    }
+//     if (!mapView || !mapView.map || !mapFeatureLayer) {
+//         console.warn("MapView or FeatureLayer not ready");
+//         return null;
+//     }
 
-    const bm = mapView.map.basemap;
+//     const bm = mapView.map.basemap;
 
-    const themes = getThemes(mapView.map.basemap);
-    console.log("Theme recommendations:", themes);
+//     const themes = getThemes(mapView.map.basemap);
+//     console.log("Theme recommendations:", themes);
 
-    const schemes = getSchemes({
-        basemap: mapView.map.basemap,
-        geometryType: mapFeatureLayer.geometryType,
-        theme: schemeTheme
-    });
-    console.log("Scheme recommendations:", schemes);
+//     const schemes = getSchemes({
+//         basemap: mapView.map.basemap,
+//         geometryType: mapFeatureLayer.geometryType,
+//         theme: schemeTheme
+//     });
+//     console.log("Scheme recommendations:", schemes);
 
-    return colorRampRec;
-}
+//     return colorRampRec;
+// }
 
 /* 
 LOGIC FOR DIPLAYING WARNING MESSAGE
