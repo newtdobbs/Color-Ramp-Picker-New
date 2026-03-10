@@ -58,6 +58,25 @@ var DecimalPrecision2 = (function() {
     };
 })();
 
+//  helper function for clamping values
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
+
+// this function will calculate the slider number for intermediate stops (stops 2 and 4)
+function calculateIntermediateStop(kurtosisValue, kurtosisCap, sd){
+
+    // for kurtosis of 0 (normal distribution), we'll default to the halfway point between mean and the standard deviation
+    if (kurtosisValue == 0){
+        return sd / 2
+    } else {
+
+        // we'll clamp our kurtosis between -1.9 and 1.9
+        kurtosisValue = clamp(kurtosisValue, -1.9, 1.9)
+        
+        // formula = actual kurtosis / kurtosis cap * standard deviation
+        return (kurtosisValue / kurtosisCap) * sd
+    }
+
+}
 
 // Specifying the ideal field types and field value types, leaving all options in for un-ommenting
 const goodFieldTypes = [
@@ -457,7 +476,7 @@ generateButton.addEventListener("click", async () => {
 
     bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
 
-    console.log('generate clicked')
+    // console.log('generate clicked')
     // if there's nothing selected,warn user
 
     //if its non-numeric warn user
@@ -491,7 +510,6 @@ generateButton.addEventListener("click", async () => {
     // we'll pass the ramp as an arg, so that way we can even recommend a ramp
     // const specifiedRamp = byName("Purple and Green 10") 
     const hist = await createHistogramForField("Purple and Green 10")
-    console.log("histogram is:", hist)    
     bottomDialog.appendChild(hist); 
 
 
@@ -532,14 +550,16 @@ async function calculateFieldStats(layer, field) {
   query.outFields = [field.name];
   query.returnGeometry = false;
 
-
   const result = await layer.queryFeatures(query);
-  const values = result.features.map(f => f.attributes[field.name]);
+
+  const removeValues = [null, undefined, NaN]
+
+  const values = result.features.map(f => f.attributes[field.name]).filter(Boolean);
 
   let desc = "";
 
   // can print values for debug
-  // console.log('field values:', values);
+  console.log('number of values from field:', values.length);
   
   // error handling for sparse distributions
   if (values.length <= 10) {
@@ -595,9 +615,11 @@ async function calculateFieldStats(layer, field) {
   let kurtosisSeverity;
   if (fi_kurtosis > 2){
     kurtosisSeverity = "peaked"
+    // clamping kurtosis at 2 for extremely high values
   } else if(fi_kurtosis < -2){
     kurtosisSeverity = "flat"
-  } else {
+    // clamping kurtosis at -2 for extremely low values
+    } else {
     kurtosisSeverity = "none"
   }
 
@@ -677,7 +699,7 @@ async function createHistogramForField(ramp){
 
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
 
-    console.log("renderer result", rendererResult)
+    // console.log("renderer result", rendererResult)
 
     // set the renderer to the layer and add it to the map
     const vv = rendererResult.visualVariable;
@@ -712,6 +734,15 @@ async function createHistogramForField(ramp){
         return DecimalPrecision2.round(value, 2); // labeling our histogram bars with 2 decimals
     };
 
+    colorSlider.stops = [
+        { value: statsSummary.mean - statsSummary.std , color: new Color([129, 0, 230]), handle: true}, // stop 1 should be 1 sd below; PURPLE
+        { value: statsSummary.mean - calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([179, 96, 209]),  handle: true}, // stop 2 ; purpley
+        { value: statsSummary.mean, color: new Color([242, 207, 158]), handle: true}, // stop 3 should be the mean, YELLOW; 
+        { value: statsSummary.mean + calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([110, 184, 48]), handle: true}, // stop 4; greenish
+        { value: statsSummary.mean + statsSummary.std, color: new Color([43, 153, 0]), handle: true} // stop 5 should be 1 sd above; GREEN 
+    ];
+    colorSlider.handlesSyncedWithStops = true;
+
     // update rendererFromSlider will be nested, specific to each new colorslider we create with variable scope
     function updateRendererFromSlider() {
         const renderer = mapFeatureLayer.renderer.clone();
@@ -723,13 +754,13 @@ async function createHistogramForField(ramp){
         bars.forEach((bar, index) => {
             const bin = colorSlider.histogramConfig.bins[index];
             if (bin) {
-            const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
-            const color = getColorFromValue(colorSlider.stops, midValue);
-            bar.setAttribute("fill", color.toHex());
+                const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
+                const color = getColorFromValue(colorSlider.stops, midValue);
+                bar.setAttribute("fill", color.toHex());
             }
         });
     }
-        // infers the color for a given value
+    // infers the color for a given value
     // based on the stops from a ColorVariable
     function getColorFromValue(stops, value) {
         let minStop = stops[0];
@@ -767,10 +798,8 @@ async function createHistogramForField(ramp){
 
         return Color.blendColors(minStop.color, maxStop.color, weightedPosition);
     }
-    console.log('COLOR SLIDER', colorSlider);
 
-    console.log('color stops:', colorSlider.stops)
-
+    console.log('Color slider', colorSlider)
     return colorSlider;
 
 }
