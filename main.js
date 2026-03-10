@@ -513,25 +513,6 @@ generateButton.addEventListener("click", async () => {
     bottomDialog.appendChild(hist); 
 
 
-
-//   // console.log('field stats', fieldStats)
-
-//   // next we'll append that text to the description the statistics
-//   bottomPanel.textContent = fieldStats;
-
-
-//   // then we'll match the description to a colorscheme
-
-
-
-
-//   // then we'll create a histogram
-//   const hist = await createHistogram();
-//   bottomPanel.appendChild(hist);
-
-//   // console.log('Histogram should be visivke')
-//   // bottomPanel.textContent = await createHistogram(currentLayer, selectedField);
-
 //   // we may not need this buuton, could be used instead to export colorscheme JSON
 //   // applyButton = document.createElement("calcite-button");
 //   // applyButton.slot = "footer-end";
@@ -550,10 +531,9 @@ async function calculateFieldStats(layer, field) {
   query.outFields = [field.name];
   query.returnGeometry = false;
 
+  // here we query all the features for the selected field, filtering out null/undefined/NaN values
   const result = await layer.queryFeatures(query);
-
   const removeValues = [null, undefined, NaN]
-
   const values = result.features.map(f => f.attributes[field.name]).filter(Boolean);
 
   let desc = "";
@@ -708,7 +688,7 @@ async function createHistogramForField(ramp){
 
     const histogramResult = await histogram({
         ...colorParams,
-        numBins: 60,
+        numBins: 100,
     });
 
     // create reference to histogram bar elements for updating
@@ -731,17 +711,38 @@ async function createHistogramForField(ramp){
     colorSlider.updateFromRendererResult(rendererResult, histogramResult);
     colorSlider.histogramConfig = histogramConfig;
     colorSlider.labelFormatFunction = (value) => {
-        return DecimalPrecision2.round(value, 2); // labeling our histogram bars with 2 decimals
+        return DecimalPrecision2.round(value, 2).toLocaleString(); // labeling our histogram bars with 2 decimals
     };
+    
+    console.log("STOPS BEFORE REASSIGNEMENT")
+    let print = ""
+    colorSlider.stops.forEach((stop, index) => {
+        print += `Stop: ${index}, Value: ${stop.value}, `;
+    });
+    console.log(print);
+
+
 
     colorSlider.stops = [
-        { value: statsSummary.mean - statsSummary.std , color: new Color([129, 0, 230]), handle: true}, // stop 1 should be 1 sd below; PURPLE
+        { value: statsSummary.min, color: new Color([129, 0, 230]), handle: true}, // stop 1 should be PURPLE
         { value: statsSummary.mean - calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([179, 96, 209]),  handle: true}, // stop 2 ; purpley
         { value: statsSummary.mean, color: new Color([242, 207, 158]), handle: true}, // stop 3 should be the mean, YELLOW; 
         { value: statsSummary.mean + calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([110, 184, 48]), handle: true}, // stop 4; greenish
-        { value: statsSummary.mean + statsSummary.std, color: new Color([43, 153, 0]), handle: true} // stop 5 should be 1 sd above; GREEN 
+        { value: statsSummary.max, color: new Color([43, 153, 0]), handle: true} // stop 5 should GREEN 
     ];
-    colorSlider.handlesSyncedWithStops = true;
+
+    /* 
+    NEED TO ADD SOME VERY VERBOSE LOGGING HERE TO MAKE SURE THE STOPS ARE BEING CORRECCTLY ASSIGNED    
+    */
+
+    console.log("STOPS AFTER REASSIGNEMENT")
+    print = ""
+    colorSlider.stops.forEach((stop, index) => {
+        print += `Stop: ${index}, Value: ${stop.value}, `;
+    });
+
+    console.log(print)
+
 
     // update rendererFromSlider will be nested, specific to each new colorslider we create with variable scope
     function updateRendererFromSlider() {
