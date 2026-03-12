@@ -52,10 +52,13 @@
 
       </calcite-shell-panel>
       <div class="map-frame" id="main-map"></div>
-      <calcite-dialog width="l" heading="" id="bottom-dialog" placement="bottom" drag-enabled resizable>
-          <calcite-button slot="footer-end" class="example-dialog-button">
-            Copy Color Ramp JSON
-        </calcite-button>
+      
+      <calcite-dialog width="l" heading="" id="bottom-dialog" placement="bottom" drag-enabled open resizable>
+        <arcgis-slider min="0" max="100" show-range-labels value-labels-display="always" steps="1" value-labels-placement="start" id="slider">
+          <arcgis-histogram id="hist"></arcgis-histogram>
+          <arcgis-ticks interactive slot="content-end" style="flex:1;" min="0" max="100" mode="count" values="11" show-labels>
+          </arcgis-ticks>
+        </arcgis-slider>
       </calcite-dialog>
     </calcite-shell>
 

@@ -5,15 +5,17 @@ const FeatureLayer = await $arcgis.import("@arcgis/core/layers/FeatureLayer.js")
 const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
 const BasemapGallery = await $arcgis.import("@arcgis/core/widgets/BasemapGallery.js");
-// const histogram = await $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
 const colorSymbology = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
-const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
-const histogram = await  $arcgis.import("@arcgis/core/smartMapping/statistics/histogram.js");
+// const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
 const Color = await $arcgis.import("@arcgis/core/Color.js");
 const intl = await $arcgis.import("@arcgis/core/intl.js");
 import * as math from "mathjs";
 const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme, getMatchingShemes } = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
 const { all, names, byName, byTag } = await $arcgis.import("@arcgis/core/smartMapping/symbology/support/colorRamps.js");
+import "@arcgis/common-components/components/arcgis-slider";
+import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
+
+import "@arcgis/common-components/components/arcgis-histogram";
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -393,6 +395,7 @@ LOGIC FOR CREATING THE LIST OF FIELDS
 let selectedField;
 let listItem;
 let fieldsList;
+let fieldValues; // an array to hold the values of the selected field
 function generateFieldsList(focusLayer) {
 
   const fieldsLabel = document.getElementById("fields-label");
@@ -459,10 +462,13 @@ const bottomDialog = document.getElementById("bottom-dialog");
 let applyButton;
 generateButton.addEventListener("click", async () => {
 
+    const slider = document.getElementById("slider");
+    slider.values = [10, 30, 60, 90] 
+
     // closing any pre-existing dialog so we can re-generate its contents
-    if (bottomDialog.open){
-        bottomDialog.open = false;
-    }
+    // if (bottomDialog.open){
+    //     bottomDialog.open = false;
+    // }
 
     // error handling if no field is selected
     console.log('selected field is:', selectedField)
@@ -509,7 +515,7 @@ generateButton.addEventListener("click", async () => {
 
     // we'll pass the ramp as an arg, so that way we can even recommend a ramp
     // const specifiedRamp = byName("Purple and Green 10") 
-    const hist = await createHistogramForField("Purple and Green 10")
+    // const hist = await createHistogramForField("Purple and Green 10")
     bottomDialog.appendChild(hist); 
 
 
@@ -525,102 +531,108 @@ generateButton.addEventListener("click", async () => {
 LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
 */
 let statsSummary;
+
+
 async function calculateFieldStats(layer, field) {
-  const query = layer.createQuery();
-  query.where = "1=1";
-  query.outFields = [field.name];
-  query.returnGeometry = false;
 
-  // here we query all the features for the selected field, filtering out null/undefined/NaN values
-  const result = await layer.queryFeatures(query);
-  const removeValues = [null, undefined, NaN]
-  const values = result.features.map(f => f.attributes[field.name]).filter(Boolean);
+    // need to ensure this query returns more than 1000 values if applicable
+    const query = layer.createQuery();
+    query.where = "1=1";
+    query.outFields = [field.name];
+    query.returnGeometry = false;
 
-  let desc = "";
+    // here we query all the features for the selected field, filtering out null/undefined/NaN values
+    const result = await layer.queryFeatures(query);
+    const removeValues = [null, undefined, NaN]
+    const values = result.features.map(f => f.attributes[field.name]).filter(Boolean); // the array of values in the selected field after filtering 
+    fieldValues = values; // assigning the filtered values from the selected field to the fieldValues global object
 
-  // can print values for debug
-  console.log('number of values from field:', values.length);
-  
-  // error handling for sparse distributions
-  if (values.length <= 10) {
-    desc = `With only ${values.length} observtaions, for now we'll refrain from calculating statistics`
-    return desc;
-  }
-
-  const fi_mean = DecimalPrecision2.round(math.mean(values), 2);
-  const fi_median = DecimalPrecision2.round(math.median(values), 2);
-  const fi_std = DecimalPrecision2.round(math.std(values), 2);
-  const fi_min = math.min(values);
-  const fi_max = math.max(values);
-  const fi_skewness = DecimalPrecision2.round(3 * (math.mean(values) - math.median(values)) / math.std(values), 2);
-
-  let fi_kurtosis;
-  if (fi_std !== 0) {
-    // excess kurtosis = average of the fourth standardized moment minus 3
-    // a normal distribution  has a kurtosis of 3
-    fi_kurtosis = DecimalPrecision2.round(math.mean(values.map(v => Math.pow((v - fi_mean) / fi_std, 4))) - 3, 2);
-  } else {
-    // if all values are identical it yields an undefined kurtosis, which we'll treat as null
-    fi_kurtosis = null;
-  }
-
-  // first skew stength
-  let skewSeverity;
-  let skewDirection;
-  // skew strength
-  if(Math.abs(fi_skewness > 0.25)) {
-    skewSeverity = "slight"
-
-    if(Math.abs(fi_skewness > 0.5)) {
-      skewSeverity = "moderate"
-
-      if(Math.abs(fi_skewness > 1)) {
-        skewSeverity = "substantial"
-        
-      }
+    let desc = "";
+    
+    // can print values for debug
+    console.log('number of values from field:', values.length);
+    
+    // error handling for sparse distributions, taken AFTER the validity filter
+    if (values.length <= 10) {
+        desc = `With only ${values.length} observtaions, for now we'll refrain from calculating statistics`
+        return desc;
     }
-    // skew direction
-    if(fi_skewness > 0) {
-      skewDirection = "positive (right)" // AKA right skew
-    }
-    else {
-      skewDirection = "negative (left)" // AKA left skew
-    }  
-  } else {
-    skewSeverity = "none"
-    skewDirection = "none"
-  }
 
-  // then kurtosis
-  let kurtosisSeverity;
-  if (fi_kurtosis > 2){
-    kurtosisSeverity = "peaked"
-    // clamping kurtosis at 2 for extremely high values
-  } else if(fi_kurtosis < -2){
-    kurtosisSeverity = "flat"
-    // clamping kurtosis at -2 for extremely low values
+    const fi_mean = DecimalPrecision2.round(math.mean(values), 2);
+    const fi_median = DecimalPrecision2.round(math.median(values), 2);
+    const fi_std = DecimalPrecision2.round(math.std(values), 2);
+    const fi_min = DecimalPrecision2.round(math.min(values), 2);
+    const fi_max = DecimalPrecision2.round(math.max(values), 2);
+    const fi_skewness = DecimalPrecision2.round(3 * (math.mean(values) - math.median(values)) / math.std(values), 2);
+
+    let fi_kurtosis;
+    if (fi_std !== 0) {
+        // excess kurtosis = average of the fourth standardized moment minus 3
+        // a normal distribution  has a kurtosis of 3
+        fi_kurtosis = DecimalPrecision2.round(math.mean(values.map(v => Math.pow((v - fi_mean) / fi_std, 4))) - 3, 2);
     } else {
-    kurtosisSeverity = "none"
-  }
+        // if all values are identical it yields an undefined kurtosis, which we'll treat as null
+        fi_kurtosis = null;
+    }
 
-  // interpret modalityif possible
-  // let modalityInterp;
+    // first skew stength
+    let skewSeverity;
+    let skewDirection;
+    // skew strength
+    if(Math.abs(fi_skewness > 0.25)) {
+        skewSeverity = "slight"
 
-  // assembling a dictionary of the statistics
-  statsSummary = {
-    'min' : fi_min,
-    'max' : fi_max,
-    'mean' : fi_mean,
-    'median' : fi_median,
-    'std' : fi_std,
-    'skewness' : fi_skewness,
-    'kurtosis' : fi_kurtosis,
-    'skewSeverity' : skewSeverity,
-    'skewDirection' : skewDirection,
-    'kurtosisSeverity' : kurtosisSeverity
-  }
-  
-  return statsSummary
+        if(Math.abs(fi_skewness > 0.5)) {
+            skewSeverity = "moderate"
+
+            if(Math.abs(fi_skewness > 1)) {
+                skewSeverity = "substantial"
+            }
+        }
+        // skew direction
+        if(fi_skewness > 0) {
+            skewDirection = "positive (right)" // AKA right skew
+        }
+        else {
+            skewDirection = "negative (left)" // AKA left skew
+        }  
+    } else {
+        skewSeverity = "none"
+        skewDirection = "none"
+    }
+
+    // then kurtosis
+    let kurtosisSeverity;
+    if (fi_kurtosis > 2){
+        kurtosisSeverity = "peaked"
+        // clamping kurtosis at 2 for extremely high values
+    } else if(fi_kurtosis < -2){
+        kurtosisSeverity = "flat"
+        // clamping kurtosis at -2 for extremely low values
+        } else {
+        kurtosisSeverity = "none"
+    }
+
+    // interpret modalityif possible
+    // let modalityInterp;
+
+    // assembling a dictionary of the statistics
+    statsSummary = {
+        'length' : values.length,
+        'min' : fi_min,
+        'max' : fi_max,
+        'mean' : fi_mean,
+        'median' : fi_median,
+        'std' : fi_std,
+        'skewness' : fi_skewness,
+        'kurtosis' : fi_kurtosis,
+        'skewSeverity' : skewSeverity,
+        'skewDirection' : skewDirection,
+        'kurtosisSeverity' : kurtosisSeverity
+    }
+    
+    console.log('STATS SUMMARY', statsSummary);
+    return statsSummary
 
 }
 
@@ -651,7 +663,37 @@ function buildDescription(){
 
 }
 
-async function createHistogramForField(ramp){
+async function createHistogramForField(ramp) {
+  const colorSlider = document.createElement("arcgis-slider");
+
+  const results = await histogram({
+    layer: mapFeatureLayer,
+    field: selectedField.name,
+    // normalizationType: "natural-log",
+    // sqlWhere: "Population > 0",
+    numBins: Math.min(statsSummary.length, 100)
+}).then((histogramResult) => {
+    const histogramElement = document.createElement("arcgis-histogram");
+    // Set histogram properties based on the histogramResult
+    histogramElement.min = histogramResult.minValue;
+    histogramElement.max = histogramResult.maxValue;
+    histogramElement.bins = histogramResult.bins;
+    console.log('histogram element', histogramElement)
+    console.log('histogram results', results) 
+    
+    // Append histogram to slider
+    colorSlider.appendChild(histogramElement);
+});
+
+
+// appending slider to dialog
+bottomDialog.appendChild(colorSlider);
+
+  return colorSlider;
+}
+
+
+async function OldcreateHistogramForField(ramp){
     const colorSlider = document.createElement("arcgis-slider-color-legacy");
     colorSlider.componentOnReady();
 
@@ -688,7 +730,7 @@ async function createHistogramForField(ramp){
 
     const histogramResult = await histogram({
         ...colorParams,
-        numBins: 100,
+        numBins: Math.min(100,  statsSummary.length),
     });
 
     // create reference to histogram bar elements for updating
@@ -722,7 +764,7 @@ async function createHistogramForField(ramp){
     console.log(print);
 
 
-
+    // ARRAY WITHN ARRAY?
     colorSlider.stops = [
         { value: statsSummary.min, color: new Color([129, 0, 230]), handle: true}, // stop 1 should be PURPLE
         { value: statsSummary.mean - calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([179, 96, 209]),  handle: true}, // stop 2 ; purpley
@@ -887,3 +929,5 @@ function warnUser(message){
   // appending the warning to the DOM
   document.body.appendChild(newAlert);
 }
+
+
