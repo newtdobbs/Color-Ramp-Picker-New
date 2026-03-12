@@ -51,15 +51,38 @@
 
 
       </calcite-shell-panel>
+
       <div class="map-frame" id="main-map"></div>
+      <calcite-dialog placement="bottom" heading="Color Ramp Information for Field" scale="l" id="bottom-dialog" kind="success" resizable width="l">
+          <div style="display:flex;width:100%;height:100%;align-content:center;justify-content:center;align-items:center;">
+          <arcgis-slider
+            id="color-slider"
+            value-labels-placement="start"
+            value-labels-display="always"
+            segments-dragging-disabled
+            style="width:95%;max-width:100%;box-sizing:border-box;"
+            layout="horizontal"
+          >
+            <arcgis-histogram
+              id="histogram"
+              slot="content-start"
+              color-blending-enabled
+              style="width:100%;max-width:100%;box-sizing:border-box;"
+              layout="horizontal"
+            ></arcgis-histogram>
+          </arcgis-slider>
+          <arcgis-ticks id="ticks"></arcgis-ticks>
+        </div>
+      </calcite-dialog>
+
       
-      <calcite-dialog width="l" heading="" id="bottom-dialog" placement="bottom" drag-enabled open resizable>
+      <!-- <calcite-dialog width="l" heading="" id="bottom-dialog" placement="bottom" drag-enabled open resizable>
         <arcgis-slider min="0" max="100" show-range-labels value-labels-display="always" steps="1" value-labels-placement="start" id="slider">
           <arcgis-histogram id="hist"></arcgis-histogram>
           <arcgis-ticks interactive slot="content-end" style="flex:1;" min="0" max="100" mode="count" values="11" show-labels>
           </arcgis-ticks>
         </arcgis-slider>
-      </calcite-dialog>
+      </calcite-dialog> -->
     </calcite-shell>
 
     <!-- loader for the app, will need to configyure this -->

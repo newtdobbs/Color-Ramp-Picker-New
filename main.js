@@ -16,6 +16,7 @@ import "@arcgis/common-components/components/arcgis-slider";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 
 import "@arcgis/common-components/components/arcgis-histogram";
+const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -427,6 +428,8 @@ function generateFieldsList(focusLayer) {
 
       listItem.addEventListener("calciteListItemSelect", async () => {
         selectedField = selectedField === field ? null : field;
+
+        console.log("Selected field is:", selectedField.alias, selectedField)
         // removing any previous warning for the user
         if(document.querySelector("calcite-alert")){
             document.querySelector("calcite-alert").remove();
@@ -461,30 +464,26 @@ const generateButton = document.getElementById("generate-btn");
 const bottomDialog = document.getElementById("bottom-dialog");
 let applyButton;
 generateButton.addEventListener("click", async () => {
-
-    const slider = document.getElementById("slider");
-    slider.values = [10, 30, 60, 90] 
-
+   
     // closing any pre-existing dialog so we can re-generate its contents
-    // if (bottomDialog.open){
-    //     bottomDialog.open = false;
-    // }
-
+    if (bottomDialog.open){
+            bottomDialog.open = false;
+        }
+        
     // error handling if no field is selected
-    console.log('selected field is:', selectedField)
     if(!selectedField){
         warnUser('Select a field from the fields list')
         return
     }
-
+    
     // resertting the dialog
-    bottomDialog.textContent = "";
-
+    // bottomDialog.textContent = "";
+    
     bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
-
+    
     // console.log('generate clicked')
     // if there's nothing selected,warn user
-
+    
     //if its non-numeric warn user
     if(!goodFieldTypes.includes(selectedField.type)){
         warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
@@ -497,38 +496,37 @@ generateButton.addEventListener("click", async () => {
         selectedField = null;
         return
     }   
-
- 
+    
+    
     // here well calculate statistics for the selected field of whatever the cuurentLayer is
-
+    
     const fieldStats =  await calculateFieldStats(mapFeatureLayer, selectedField);
-
-
+    
+    
     // here we'll assemble a description of the data distribution
-    const desc = document.createElement("div");
-    desc.textContent = buildDescription();
-    desc.slot = "content-bottom";
-
-    bottomDialog.appendChild(desc);
-    bottomDialog.open = true;
-  
-
+    // const desc = document.createElement("div");
+    // desc.textContent = buildDescription();
+    // desc.slot = "content-bottom";
+    
+    // bottomDialog.appendChild(desc);
+    
     // we'll pass the ramp as an arg, so that way we can even recommend a ramp
     // const specifiedRamp = byName("Purple and Green 10") 
-    // const hist = await createHistogramForField("Purple and Green 10")
-    bottomDialog.appendChild(hist); 
-
-
-//   // we may not need this buuton, could be used instead to export colorscheme JSON
-//   // applyButton = document.createElement("calcite-button");
-//   // applyButton.slot = "footer-end";
-//   // applyButton.textContent = "Apply Colorscale";
-//   // bottomPanel.appendChild(applyButton);
-
+    const hist = await createHistogramForField()
+    // bottomDialog.appendChild(hist); 
+    bottomDialog.open = true;
+    
+    
+    //   // we may not need this buuton, could be used instead to export colorscheme JSON
+    //   // applyButton = document.createElement("calcite-button");
+    //   // applyButton.slot = "footer-end";
+    //   // applyButton.textContent = "Apply Colorscale";
+    //   // bottomPanel.appendChild(applyButton);
+        
 });
-
-/* 
-LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
+    
+    /* 
+    LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
 */
 let statsSummary;
 
@@ -664,34 +662,64 @@ function buildDescription(){
 }
 
 async function createHistogramForField(ramp) {
-  const colorSlider = document.createElement("arcgis-slider");
+  try {
 
-  const results = await histogram({
-    layer: mapFeatureLayer,
-    field: selectedField.name,
-    // normalizationType: "natural-log",
-    // sqlWhere: "Population > 0",
-    numBins: Math.min(statsSummary.length, 100)
-}).then((histogramResult) => {
-    const histogramElement = document.createElement("arcgis-histogram");
-    // Set histogram properties based on the histogramResult
+    // gathering summary statistics from the selected field of the active feature layer
+    const stats = await summaryStatistics({
+      layer: mapFeatureLayer,
+      field: selectedField.name
+    });
+
+    console.log("statistics generate", stats);
+
+    // error handling for sparse distributions with low record count
+    if(stats.count < 20){
+        return `With only ${stats.count} observtaions, for now we'll refrain from calculating statistics`
+    }
+
+    // inserting skew and kurtosis as additional statistics into the dictionary
+    stats['skewness'] = 3 * (stats.mean - stats.median) / stats.stddev // from pearson's median skewness
+ 
+    // we'll hold off on calculating kurtosis for now, as that will require querying ALL records from the field
+    // stats['kurtosis'] = calculateKurtosis
+
+    const sliderElement = document.getElementById("color-slider");
+    sliderElement.min = stats.min;
+    sliderElement.max = stats.max;
+    sliderElement.values = [stats.min, stats.avg, stats.max];
+
+    // Get histogram
+    const histogramResult = await histogram({
+      layer: mapFeatureLayer,
+      field: selectedField.name,
+      numBins: Math.min(100, stats.count)
+    });
+
+    const histogramElement = document.getElementById("histogram");
     histogramElement.min = histogramResult.minValue;
     histogramElement.max = histogramResult.maxValue;
     histogramElement.bins = histogramResult.bins;
-    console.log('histogram element', histogramElement)
-    console.log('histogram results', results) 
+
+
     
-    // Append histogram to slider
-    colorSlider.appendChild(histogramElement);
-});
+    histogramElement.colorStops = [
+        { "color": '#8100e6', "value": stats.min}, // first stop, min value at purple
+        { "color": '#f2cf9e', "value": stats.avg }, // middle stop, mean at yellow
+        { "color": '#2b9900', "value": stats.max } // last stop, max value at green
+    ];
 
 
-// appending slider to dialog
-bottomDialog.appendChild(colorSlider);
-
-  return colorSlider;
+    console.log("Histogram created", histogramResult);
+  } catch (err) {
+    console.error("Error creating histogram:", err);
+  }
 }
 
+// function buildDescription(statsSummary){
+
+//     return descrioptionForField;
+
+// }
 
 async function OldcreateHistogramForField(ramp){
     const colorSlider = document.createElement("arcgis-slider-color-legacy");
