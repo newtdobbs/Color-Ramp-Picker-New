@@ -6,7 +6,7 @@ const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
 const BasemapGallery = await $arcgis.import("@arcgis/core/widgets/BasemapGallery.js");
 const colorSymbology = await $arcgis.import("@arcgis/core/smartMapping/symbology/color.js");
-// const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
+const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
 const Color = await $arcgis.import("@arcgis/core/Color.js");
 const intl = await $arcgis.import("@arcgis/core/intl.js");
 import * as math from "mathjs";
@@ -68,7 +68,7 @@ const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
 function calculateIntermediateStop(kurtosisValue, kurtosisCap, sd){
 
     // for kurtosis of 0 (normal distribution), we'll default to the halfway point between mean and the standard deviation
-    if (kurtosisValue == 0){
+    if (kurtosisValue === 0){
         return sd / 2
     } else {
 
@@ -242,7 +242,7 @@ if (input) {
         event.preventDefault();
 
         // hardcoding a default value --REMOVE THIS FOR DEPLOYMENT
-        if (input.value == ""){
+        if (input.value === ""){
             selectedID = "c9faa265b82848498bc0a8390c0afa65" // MINC
         } else {
             const raw = input.value || "";
@@ -325,7 +325,7 @@ function createDropdownForService(serviceLayersInfo) {
     // selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
 
 
-    if (serviceLayersInfo.length == 1){
+    if (serviceLayersInfo.length === 1){
         layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`;
         selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
 
@@ -338,13 +338,16 @@ function createDropdownForService(serviceLayersInfo) {
         layerOption.value = serviceLayer.id; // the layer id as value allows us to index it in the array
 
         layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
-        layerOption.addEventListener("calciteAutocompleteItemSelect", () => {
+        layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
             selectedLayer = serviceLayer; // setting the curent layer to the selected layer
             console.log('selection change to:', selectedLayer.name, 'layer info:', selectedLayer)
             layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`; 
 
             // call to createMap if the selection changes
-            createMap(selectedID, selectedLayer)
+            await createMap(selectedID, selectedLayer);
+
+            // re-populating the list of fields, DON'T want to assume that the fields are consistent
+            generateFieldsList();
         });
     });
 
@@ -362,27 +365,27 @@ async function createMap(itemId, sublayer) {
     mapView.map.removeAll(); // first removing all layers from the current view
     try {
         const layer = new FeatureLayer({
-        portalItem: { id: itemId },
-        layerId: sublayer.id
+            portalItem: { id: itemId },
+            layerId: sublayer.id
         });
         await layer.load();
         mapFeatureLayer = layer;
+        console.log('mapfeatureLayer', mapFeatureLayer);
         mapView.map.add(layer);
         await mapView.when();
 
         // zooming to the midpoint of the selected layer's visibility
-        // let layerMinScale;
-        // if (layer.minScale == 0){
-        //     layerMinScale = 1
-        // } else {
-        //     layerMinScale = layer.minScale;
-        // }
-        // const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
+        let layerMinScale;
+        if (layer.minScale === 0){
+            layerMinScale = 1
+        } else {
+            layerMinScale = layer.minScale;
+        }
+        const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
   
         // console.log(`Resetting view for Layer to mid scale of: ${midScale}`);
-        // mapView.goTo({ scale: midScale, center: default_center });
+        mapView.goTo({ scale: midScale, center: default_center });
 
-        generateFieldsList(mapFeatureLayer)
 
     } catch (e) {
         console.error('Could not create/load layer from item ID:', itemId, e);
@@ -397,55 +400,55 @@ let selectedField;
 let listItem;
 let fieldsList;
 let fieldValues; // an array to hold the values of the selected field
-function generateFieldsList(focusLayer) {
+function generateFieldsList() {
+    const fieldsLabel = document.getElementById("fields-label");
+    fieldsLabel.textContent = "Select a Field";
 
-  const fieldsLabel = document.getElementById("fields-label");
-  fieldsLabel.textContent = "Select a Field";
+    fieldsList = document.createElement("calcite-list");
+    fieldsList.label = "Select a field";
+    fieldsList.selectionMode = "single"; // also fix typo: selectionzMode → selectionMode
+    fieldsLabel.appendChild(fieldsList);
 
-  fieldsList = document.createElement("calcite-list");
-  fieldsList.label = "Select a field";
-  fieldsList.selectionMode = "single"; // also fix typo: selectionzMode → selectionMode
-  fieldsLabel.appendChild(fieldsList);
+    // Clear old list items if needed
+    fieldsList.innerHTML = "";
 
-  // Clear old list items if needed
-  fieldsList.innerHTML = "";
+    // Can log all the fields here for debug
+    // console.log("All fields:");
+    // mapFeatureLayer.fields.forEach(field => {
+    //     console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
+    // });
 
-  // Can log all the fields here for debug
-//   console.log("All fields:");
-//   focusLayer.fields.forEach(field => {
-//     console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
-//   });
 
-  focusLayer.fields.forEach(field => {
-    if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
-      const listItem = document.createElement("calcite-list-item");
-      listItem.label = field.alias;
-      listItem.scale = "s";
-      listItem.value = field.name;
-      listItem.closable = true;
+    mapFeatureLayer.fields.forEach(field => {
+        if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
+        const listItem = document.createElement("calcite-list-item");
+        listItem.label = field.alias;
+        listItem.scale = "s";
+        listItem.value = field.name;
+        listItem.closable = true;
 
-      fieldsList.appendChild(listItem);
+        fieldsList.appendChild(listItem);
 
-      listItem.addEventListener("calciteListItemSelect", async () => {
-        selectedField = selectedField === field ? null : field;
+        listItem.addEventListener("calciteListItemSelect", async () => {
+            selectedField = selectedField === field ? null : field;
 
-        console.log("Selected field is:", selectedField.alias, selectedField)
-        // removing any previous warning for the user
-        if(document.querySelector("calcite-alert")){
-            document.querySelector("calcite-alert").remove();
+            console.log("Selected field is:", selectedField.alias, selectedField)
+            // removing any previous warning for the user
+            if(document.querySelector("calcite-alert")){
+                document.querySelector("calcite-alert").remove();
+            }
+        });
+
+        listItem.addEventListener("calciteListItemClose", async () => {
+            console.log('removing field: ', field.alias);
+            if (selectedField.alias === field.alias){
+                selectedField = null;
+                // warnUser('Select a field from the fields list')
+            }
+            listItem.remove();
+        });
         }
-      });
-
-      listItem.addEventListener("calciteListItemClose", async () => {
-        console.log('removing field: ', field.alias);
-        if (selectedField.alias == field.alias){
-            selectedField = null;
-            // warnUser('Select a field from the fields list')
-        }
-        listItem.remove();
-      });
-    }
-  });
+    });
 }
 
 
@@ -465,24 +468,23 @@ const bottomDialog = document.getElementById("bottom-dialog");
 let applyButton;
 generateButton.addEventListener("click", async () => {
    
-    // closing any pre-existing dialog so we can re-generate its contents
-    if (bottomDialog.open){
-            bottomDialog.open = false;
-        }
-        
     // error handling if no field is selected
     if(!selectedField){
         warnUser('Select a field from the fields list')
         return
     }
     
+    // otherwise, closing any pre-existing dialog so we can re-generate its contents
+    if (bottomDialog.open){
+        // bottomDialog.textContent = "";    
+        bottomDialog.open = false;
+    }
+        
+    
     // resertting the dialog
     // bottomDialog.textContent = "";
+
     
-    bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
-    
-    // console.log('generate clicked')
-    // if there's nothing selected,warn user
     
     //if its non-numeric warn user
     if(!goodFieldTypes.includes(selectedField.type)){
@@ -496,32 +498,40 @@ generateButton.addEventListener("click", async () => {
         selectedField = null;
         return
     }   
+
+    // setting the heading and opening the dialog but with a loader
     
-    
-    // here well calculate statistics for the selected field of whatever the cuurentLayer is
-    
-    const fieldStats =  await calculateFieldStats(mapFeatureLayer, selectedField);
-    
-    
-    // here we'll assemble a description of the data distribution
-    // const desc = document.createElement("div");
-    // desc.textContent = buildDescription();
-    // desc.slot = "content-bottom";
-    
-    // bottomDialog.appendChild(desc);
-    
-    // we'll pass the ramp as an arg, so that way we can even recommend a ramp
-    // const specifiedRamp = byName("Purple and Green 10") 
-    const hist = await createHistogramForField()
-    // bottomDialog.appendChild(hist); 
     bottomDialog.open = true;
+    bottomDialog.componentOnReady();
+    bottomDialog.loading = true;
     
-    
-    //   // we may not need this buuton, could be used instead to export colorscheme JSON
-    //   // applyButton = document.createElement("calcite-button");
-    //   // applyButton.slot = "footer-end";
-    //   // applyButton.textContent = "Apply Colorscale";
-    //   // bottomPanel.appendChild(applyButton);
+    try {
+        
+        
+        // here well calculate statistics for the selected field of whatever the cuurentLayer is
+        
+        const fieldStats =  await calculateFieldStats(mapFeatureLayer, selectedField);
+        
+        
+        // here we'll assemble a description of the data distribution
+        // const desc = document.createElement("div");
+        // desc.textContent = buildDescription();
+        // desc.slot = "content-bottom";
+        
+        // bottomDialog.appendChild(desc);
+ 
+        // removing the loader
+        const hist = await createHistogramForField()
+
+        // updating the dialog header
+        bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
+        
+    } catch(err){
+        console.log("Error generating histogram:", err)
+        bottomDialog.heading = `Error Generating Color Ramp Information for ${selectedField.alias}`
+    }
+    bottomDialog.loading = false;
+    bottomDialog.open = true;
         
 });
     
@@ -529,8 +539,6 @@ generateButton.addEventListener("click", async () => {
     LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
 */
 let statsSummary;
-
-
 async function calculateFieldStats(layer, field) {
 
     // need to ensure this query returns more than 1000 values if applicable
@@ -679,66 +687,21 @@ async function createHistogramForField(ramp) {
 
     // inserting skew and kurtosis as additional statistics into the dictionary
     stats['skewness'] = 3 * (stats.mean - stats.median) / stats.stddev // from pearson's median skewness
- 
+
+
     // we'll hold off on calculating kurtosis for now, as that will require querying ALL records from the field
+    // for now we'll put intermediate stops at midpoints
     // stats['kurtosis'] = calculateKurtosis
 
-    const sliderElement = document.getElementById("color-slider");
-    sliderElement.min = stats.min;
-    sliderElement.max = stats.max;
-    sliderElement.values = [stats.min, stats.avg, stats.max];
-
-    // Get histogram
-    const histogramResult = await histogram({
-      layer: mapFeatureLayer,
-      field: selectedField.name,
-      numBins: Math.min(100, stats.count)
-    });
-
-    const histogramElement = document.getElementById("histogram");
-    histogramElement.min = histogramResult.minValue;
-    histogramElement.max = histogramResult.maxValue;
-    histogramElement.bins = histogramResult.bins;
-
-
-    
-    histogramElement.colorStops = [
-        { "color": '#8100e6', "value": stats.min}, // first stop, min value at purple
-        { "color": '#f2cf9e', "value": stats.avg }, // middle stop, mean at yellow
-        { "color": '#2b9900', "value": stats.max } // last stop, max value at green
-    ];
-
-
-    console.log("Histogram created", histogramResult);
-  } catch (err) {
-    console.error("Error creating histogram:", err);
-  }
-}
-
-// function buildDescription(statsSummary){
-
-//     return descrioptionForField;
-
-// }
-
-async function OldcreateHistogramForField(ramp){
-    const colorSlider = document.createElement("arcgis-slider-color-legacy");
-    colorSlider.componentOnReady();
-
-    // listen to arcgisThumbChange and arcgisThumbDrag events
-    // update the layer's renderer to match the slider's color stops
-    colorSlider.addEventListener("arcgisThumbChange", updateRendererFromSlider);
-    colorSlider.addEventListener("arcgisThumbDrag", updateRendererFromSlider);
-    colorSlider.addEventListener("arcgisPropertyChange", updateRendererFromSlider);
-
+    // grabbing the green-purple color scheme to use in the map
     const matchingScheme = getSchemeByName({
         basemap: mapView.map.basemap,
         geometryType: mapFeatureLayer.geometryType,
         theme: "above-and-below",
         name: "Purple and Green 10"
     });
-
-
+    
+    // setting parameters for a continuous renderer
     const colorParams = {
         view: mapView,
         layer: mapFeatureLayer,
@@ -746,199 +709,97 @@ async function OldcreateHistogramForField(ramp){
         theme: "above-and-below",
         colorScheme: matchingScheme
     }
-
+    
+    // creating continuous renderer using the given color scheme
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
-
-    // console.log("renderer result", rendererResult)
-
-    // set the renderer to the layer and add it to the map
-    const vv = rendererResult.visualVariable;
+    // qapplying the selected color ramp to the map rendering
     mapFeatureLayer.renderer = rendererResult.renderer;
     mapFeatureLayer.visible = true;
 
+
+    // grabbing the slider element & using the stats to adjust it
+    const sliderElement = document.getElementById("color-slider");
+    sliderElement.min = stats.min;
+    sliderElement.max = stats.max;
+    // 5 stop slider
+    sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max];
+    sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
+    console.log("color slider created", sliderElement); // log for debug
+    
+
+    // grabbing the histogram element and using the stats to adjust it
     const histogramResult = await histogram({
-        ...colorParams,
-        numBins: Math.min(100,  statsSummary.length),
+        layer: mapFeatureLayer,
+        field: selectedField.name,
+        numBins: Math.min(100, stats.count)
     });
-
-    // create reference to histogram bar elements for updating
-    // their style as the user drags slider thumbs
     
-    const bars = [];
-    const histogramConfig = {
-        average: statsSummary.mean,
-        barCreatedFunction: (index, element) => {
-            const bin = histogramResult.bins[index];
-            const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
-            const color = getColorFromValue(colorSlider.stops, midValue);
-            element.setAttribute("fill", color.toHex());
-            bars.push(element);
-        },
-        bins: histogramResult.bins,
-        standardDeviation: statsSummary.std,
-    };
-
-    colorSlider.updateFromRendererResult(rendererResult, histogramResult);
-    colorSlider.histogramConfig = histogramConfig;
-    colorSlider.labelFormatFunction = (value) => {
-        return DecimalPrecision2.round(value, 2).toLocaleString(); // labeling our histogram bars with 2 decimals
-    };
+    const histogramElement = document.getElementById("histogram");
+    histogramElement.min = histogramResult.minValue;
+    histogramElement.max = histogramResult.maxValue;
+    histogramElement.bins = histogramResult.bins;
     
-    console.log("STOPS BEFORE REASSIGNEMENT")
-    let print = ""
-    colorSlider.stops.forEach((stop, index) => {
-        print += `Stop: ${index}, Value: ${stop.value}, `;
-    });
-    console.log(print);
-
-
-    // ARRAY WITHN ARRAY?
-    colorSlider.stops = [
-        { value: statsSummary.min, color: new Color([129, 0, 230]), handle: true}, // stop 1 should be PURPLE
-        { value: statsSummary.mean - calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([179, 96, 209]),  handle: true}, // stop 2 ; purpley
-        { value: statsSummary.mean, color: new Color([242, 207, 158]), handle: true}, // stop 3 should be the mean, YELLOW; 
-        { value: statsSummary.mean + calculateIntermediateStop(statsSummary.kurtosis, 2, statsSummary.std), color: new Color([110, 184, 48]), handle: true}, // stop 4; greenish
-        { value: statsSummary.max, color: new Color([43, 153, 0]), handle: true} // stop 5 should GREEN 
+    // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
+    histogramElement.colorStops = [
+        { "color": [129, 0, 230], "value": stats.min}, // first stop, min value at purple
+        { "color": [179, 96, 209], "value": stats.avg - stats.stddev }, // stop 2, purpley
+        { "color": [242, 207, 158], "value": stats.avg }, // middle stop, mean at yellow
+        { "color": [110, 184, 48], "value": stats.avg + stats.stddev}, // stop 4, greenish
+        { "color": [43, 153, 0], "value": stats.max } // last stop, max value at green
     ];
 
-    /* 
-    NEED TO ADD SOME VERY VERBOSE LOGGING HERE TO MAKE SURE THE STOPS ARE BEING CORRECCTLY ASSIGNED    
-    */
+    histogramElement.colorBlendingEnabled = true;
 
-    console.log("STOPS AFTER REASSIGNEMENT")
-    print = ""
-    colorSlider.stops.forEach((stop, index) => {
-        print += `Stop: ${index}, Value: ${stop.value}, `;
+    console.log("Histogram created", histogramResult); // log for debug
+
+    // storing the slider values BEFORE adding an event listener, so we can update changes
+    let sliderValues = sliderElement.values;
+    // variable to track which slider was changed, only one at a time
+    let changedSliderIndex;
+    // variable to track the new value for a slider, shouldn't matter which slider is changed
+    let changedSliderValue;
+    // event handling for adjusting the slider position to update the renderer 
+    sliderElement.addEventListener("arcgisChange", () => {
+        // this should yield true as new slider values don't match the old
+        if(sliderElement.values != sliderValues){
+            // ORDER OF OPERATIONS
+            changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues)
+            // determine WHICH slider changed
+            changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues)
+
+            // determine the NEW value of the slider
+            changedSliderValue = sliderElement.values[changedSliderIndex]
+            console.log(`Slider ${changedSliderIndex} changed to value ${changedSliderValue}`); // log for debug
+
+            const newStops = histogramElement.colorStops.map((colorStop, i) => ({
+            ...colorStop,
+            value: sliderElement.values[i]
+            }))
+            .sort((a, b) => a.value - b.value); // this resets the slider indices
+
+            histogramElement.colorStops = newStops; // this will actually re-render the histogram colorramp
+
+            sliderValues = [...sliderElement.values]; // store updated values
+            console.log("Updated histogram color stops", histogramElement.colorStops);
+            // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug after change
+        // 
+        }
+        console.log('histograsm color stops', histogramElement.colorStops)
     });
 
-    console.log(print)
 
-
-    // update rendererFromSlider will be nested, specific to each new colorslider we create with variable scope
-    function updateRendererFromSlider() {
-        const renderer = mapFeatureLayer.renderer.clone();
-        const colorVariable = renderer.visualVariables[0].clone();
-        colorVariable.stops = colorSlider.stops;
-        renderer.visualVariables = [colorVariable];
-        mapFeatureLayer.renderer = renderer;
-
-        bars.forEach((bar, index) => {
-            const bin = colorSlider.histogramConfig.bins[index];
-            if (bin) {
-                const midValue = (bin.maxValue - bin.minValue) / 2 + bin.minValue;
-                const color = getColorFromValue(colorSlider.stops, midValue);
-                bar.setAttribute("fill", color.toHex());
-            }
-        });
-    }
-    // infers the color for a given value
-    // based on the stops from a ColorVariable
-    function getColorFromValue(stops, value) {
-        let minStop = stops[0];
-        let maxStop = stops[stops.length - 1];
-
-        const minStopValue = minStop.value;
-        const maxStopValue = maxStop.value;
-
-        if (value < minStopValue) {
-            return minStop.color;
-        }
-
-        if (value > maxStopValue) {
-            return maxStop.color;
-        }
-
-        const exactMatches = stops.filter((stop) => {
-            return stop.value === value;
-        });
-
-        if (exactMatches.length > 0) {
-            return exactMatches[0].color;
-        }
-
-        minStop = null;
-        maxStop = null;
-        stops.forEach((stop, i) => {
-            if (!minStop && !maxStop && stop.value >= value) {
-            minStop = stops[i - 1];
-            maxStop = stop;
-            }
-        });
-
-        const weightedPosition = (value - minStop.value) / (maxStop.value - minStop.value);
-
-        return Color.blendColors(minStop.color, maxStop.color, weightedPosition);
-    }
-
-    console.log('Color slider', colorSlider)
-    return colorSlider;
-
+} catch (err) {
+    console.error("Error creating histogram:", err);
+  }
 }
 
 
-/* 
-LOGIC FOR RECOMMENDING A COLORRAMP
-*/
-// function recommendColorRamp(){
-
-//     /* 
-//     // theme matching rulset
-//     left skewed: above (emphasize high values)
-//     right skewed: below (emphasize low values)
-//     high kurtosis: above-and-below (narrow central gap)
-//     low kurtosis: extremes (wider central gap)
-//     approximately normal: centered on?
-//     */
-
-//     let schemeTheme;
-//     let flipRamp = false;
-
-//     // we'll start with non-skewed, slightly skewed, or moderately skewed
-//     if(statsSummary.skewDirection != "substantial") {
-//         // for high kurtosis, we'll use above an below
-//         if (statsSummary.kurtosisSeverity == "peaked") {
-//             schemeTheme = "above-and-below"
-//         // for very low kurtosis, we'll use extremes
-//         } else if (statsSummary.kurtosisSeverity == "flat") {
-//             schemeTheme = "extremes"
-//         // for normal, we'll default to centered-on
-//         } else
-
-//         // 
-//     } else { // if the distribution is highly skewed, we'll fall back to high-to-low
-//         schemeTheme = "high-to-low"
-//         // for right skew, we'll flip the ramp to emphasize low values
-//         if (statsSummary.skewDirection == "positive"){
-//             flipRamp = true;
-//         }
-//     }
-
-
-//     // "high-to-low" | "above-and-below" | "centered-on" | "extremes" | "above" | "below"
-
-//     if (!mapView || !mapView.map || !mapFeatureLayer) {
-//         console.warn("MapView or FeatureLayer not ready");
-//         return null;
-//     }
-
-//     const bm = mapView.map.basemap;
-
-//     const themes = getThemes(mapView.map.basemap);
-//     console.log("Theme recommendations:", themes);
-
-//     const schemes = getSchemes({
-//         basemap: mapView.map.basemap,
-//         geometryType: mapFeatureLayer.geometryType,
-//         theme: schemeTheme
-//     });
-//     console.log("Scheme recommendations:", schemes);
-
-//     return colorRampRec;
-// }
 
 /* 
-LOGIC FOR DIPLAYING WARNING MESSAGE
+HELPER FUNCTIONS
 */
+
+// FUNCTION FOR DIPLAYING WARNING MESSAGE
 function warnUser(message){
   // clear any existing warnings
   const existingAlert = document.querySelector("calcite-alert")
@@ -958,4 +819,14 @@ function warnUser(message){
   document.body.appendChild(newAlert);
 }
 
-
+// FUNCTION FOR DETECTING SLIDER CHANGE (AGNOSTIC TO NUMBER OF SLIDERS)
+function determineSliderChanges(arr1, arr2) {
+  // lengths must be equal for a valid index-by-index comparison
+  if (arr1.length !== arr2.length) {
+    console.error("Arrays must have the same length for index-by-index comparison.");
+    return [];
+  }
+  return arr1
+    .map((value, index) => value !== arr2[index] ? index : null) // where arr1 DOESNT match arr2 it converts to the index, for equivalence we leave null
+    .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
+}
