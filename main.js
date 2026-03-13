@@ -18,6 +18,7 @@ import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 
+
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
 because apparently its impossible in javascript
@@ -715,7 +716,7 @@ async function createHistogramForField(ramp) {
     // qapplying the selected color ramp to the map rendering
     mapFeatureLayer.renderer = rendererResult.renderer;
     mapFeatureLayer.visible = true;
-
+    console.log("RENDERER INFO  ", mapFeatureLayer.renderer);
 
     // grabbing the slider element & using the stats to adjust it
     const sliderElement = document.getElementById("color-slider");
@@ -752,42 +753,95 @@ async function createHistogramForField(ramp) {
 
     console.log("Histogram created", histogramResult); // log for debug
 
-    // storing the slider values BEFORE adding an event listener, so we can update changes
-    let sliderValues = sliderElement.values;
-    // variable to track which slider was changed, only one at a time
-    let changedSliderIndex;
-    // variable to track the new value for a slider, shouldn't matter which slider is changed
-    let changedSliderValue;
-    // event handling for adjusting the slider position to update the renderer 
-    sliderElement.addEventListener("arcgisChange", () => {
-        // this should yield true as new slider values don't match the old
-        if(sliderElement.values != sliderValues){
-            // ORDER OF OPERATIONS
-            changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues)
-            // determine WHICH slider changed
-            changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues)
+    /* 
+    LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
+    */    
+    // helper functiont to assign the correct event listener based on the input switch's mode
+    function attachSliderListener(value) {
+       // Remove any existing listeners to avoid duplicates
+        sliderElement.removeEventListener("arcgisChange", sliderHandler);
+        sliderElement.removeEventListener("arcgisInput", sliderHandler);
 
-            // determine the NEW value of the slider
-            changedSliderValue = sliderElement.values[changedSliderIndex]
-            console.log(`Slider ${changedSliderIndex} changed to value ${changedSliderValue}`); // log for debug
+        if (value === "discrete") {
+            sliderElement.addEventListener("arcgisChange", sliderHandler);
+        } else {
+            sliderElement.addEventListener("arcgisInput", sliderHandler);
+        }
+    }
 
-            const newStops = histogramElement.colorStops.map((colorStop, i) => ({
+    // helper fuinction to update the histogram based on slider changes, agnostic to updateSwitch mode
+    function sliderHandler() {
+        // variable to track which slider was changed, only one at a time
+        const changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues);
+         // variable to track the new value for a slider, shouldn't matter which slider is changed
+        const changedSliderValue = sliderElement.values[changedSliderIndex];
+        console.log(`Slider ${changedSliderIndex} changed to value ${changedSliderValue}`);
+
+        // creating an array using the  previous histogram color stops and assigning new values 
+        const newStops = histogramElement.colorStops
+            .map((colorStop, i) => ({
             ...colorStop,
             value: sliderElement.values[i]
             }))
-            .sort((a, b) => a.value - b.value); // this resets the slider indices
+            .sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
 
-            histogramElement.colorStops = newStops; // this will actually re-render the histogram colorramp
+        // assigning the new slider stops to the histogram color stops 
+        histogramElement.colorStops = newStops;
+        sliderValues = [...sliderElement.values];
+        console.log("Updated histogram color stops", histogramElement.colorStops);
 
-            sliderValues = [...sliderElement.values]; // store updated values
-            console.log("Updated histogram color stops", histogramElement.colorStops);
-            // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug after change
-        // 
-        }
-        console.log('histograsm color stops', histogramElement.colorStops)
+        // here we need to update the map renderer 
+        updateRendererFromSlider();
+    }
+
+    // Initial setup
+    let sliderValues = sliderElement.values;
+    const updateSwitch = document.getElementById("update-switch");
+    attachSliderListener(updateSwitch.value);
+
+    // Switch change handling
+    updateSwitch.addEventListener("calciteSwitchChange", () => {
+        // set to 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
+        updateSwitch.value = updateSwitch.value === "discrete" ? "continuous" : "discrete";
+        console.log("Switch value is now:", updateSwitch.value);
+        // attaching the proper listener based on the switch value
+        attachSliderListener(updateSwitch.value);
     });
 
+    // helper function to update the map renderer when a slider moves
+    function updateRendererFromSlider() {
 
+        const renderer = mapFeatureLayer.renderer.clone();
+
+        // finding the 'color' visual variable by type property
+        const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");
+        if (colorVarIndex === -1) {
+            console.warn("No color visual variable found in renderer.");
+            warnUser("Error updating map renderer with color ramp information");
+            return;
+        }
+
+        // cloning the color variable specifically at its index
+        const colorVariable = renderer.visualVariables[colorVarIndex].clone();
+
+        // checking if the number of stops matches the slider thumbs
+        // if the user adds another thumb, there will be a mismatch
+        if (colorVariable.stops.length !== sliderElement.values.length) {
+            console.warn("Stop count mismatch — rebuilding stops array.");
+            // if the number of thumbs does match the number of color stops
+        }
+        colorVariable.stops = colorVariable.stops.map((stop, i) => ({
+            ...stop,
+            color: histogramElement.colorStops[i]?.color || [0, 0, 0], // grabbing the colr from the associated hisotgram break
+            value: sliderElement.values[i] // grabbing the value from the associated slider element
+        }));
+
+        renderer.visualVariables[colorVarIndex] = colorVariable;
+        mapFeatureLayer.renderer = renderer;
+
+        console.log("Renderer updated:", renderer.visualVariables[colorVarIndex].stops);
+    }
+    
 } catch (err) {
     console.error("Error creating histogram:", err);
   }
@@ -830,3 +884,5 @@ function determineSliderChanges(arr1, arr2) {
     .map((value, index) => value !== arr2[index] ? index : null) // where arr1 DOESNT match arr2 it converts to the index, for equivalence we leave null
     .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
 }
+
+
