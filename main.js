@@ -14,10 +14,9 @@ const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme, ge
 const { all, names, byName, byTag } = await $arcgis.import("@arcgis/core/smartMapping/symbology/support/colorRamps.js");
 import "@arcgis/common-components/components/arcgis-slider";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
-
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
-
+// const ApiKeyManager = require("@esri/arcgis-rest-request");
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -483,9 +482,7 @@ generateButton.addEventListener("click", async () => {
         
     
     // resertting the dialog
-    // bottomDialog.textContent = "";
-
-    
+    // bottomDialog.textContent = "";  
     
     //if its non-numeric warn user
     if(!goodFieldTypes.includes(selectedField.type)){
@@ -508,24 +505,17 @@ generateButton.addEventListener("click", async () => {
     
     try {
         
-        
-        // here well calculate statistics for the selected field of whatever the cuurentLayer is
-        
-        const fieldStats =  await calculateFieldStats(mapFeatureLayer, selectedField);
-        
-        
-        // here we'll assemble a description of the data distribution
-        // const desc = document.createElement("div");
-        // desc.textContent = buildDescription();
-        // desc.slot = "content-bottom";
-        
-        // bottomDialog.appendChild(desc);
- 
-        // removing the loader
-        const hist = await createHistogramForField()
-
         // updating the dialog header
         bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
+        
+        // building the histogram for the selected field's data
+        
+        // here we'll assemble a description of the selected field's data distribution
+        const desc = document.getElementById("dialog-description");
+        desc.textContent = await populateDialogForField()
+        desc.slot = "content-bottom";
+        
+        bottomDialog.appendChild(desc);
         
     } catch(err){
         console.log("Error generating histogram:", err)
@@ -536,150 +526,95 @@ generateButton.addEventListener("click", async () => {
         
 });
     
-    /* 
-    LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
-*/
-let statsSummary;
-async function calculateFieldStats(layer, field) {
 
-    // need to ensure this query returns more than 1000 values if applicable
-    const query = layer.createQuery();
-    query.where = "1=1";
-    query.outFields = [field.name];
-    query.returnGeometry = false;
-
-    // here we query all the features for the selected field, filtering out null/undefined/NaN values
-    const result = await layer.queryFeatures(query);
-    const removeValues = [null, undefined, NaN]
-    const values = result.features.map(f => f.attributes[field.name]).filter(Boolean); // the array of values in the selected field after filtering 
-    fieldValues = values; // assigning the filtered values from the selected field to the fieldValues global object
-
-    let desc = "";
-    
-    // can print values for debug
-    console.log('number of values from field:', values.length);
-    
-    // error handling for sparse distributions, taken AFTER the validity filter
-    if (values.length <= 10) {
-        desc = `With only ${values.length} observtaions, for now we'll refrain from calculating statistics`
-        return desc;
-    }
-
-    const fi_mean = DecimalPrecision2.round(math.mean(values), 2);
-    const fi_median = DecimalPrecision2.round(math.median(values), 2);
-    const fi_std = DecimalPrecision2.round(math.std(values), 2);
-    const fi_min = DecimalPrecision2.round(math.min(values), 2);
-    const fi_max = DecimalPrecision2.round(math.max(values), 2);
-    const fi_skewness = DecimalPrecision2.round(3 * (math.mean(values) - math.median(values)) / math.std(values), 2);
-
-    let fi_kurtosis;
-    if (fi_std !== 0) {
-        // excess kurtosis = average of the fourth standardized moment minus 3
-        // a normal distribution  has a kurtosis of 3
-        fi_kurtosis = DecimalPrecision2.round(math.mean(values.map(v => Math.pow((v - fi_mean) / fi_std, 4))) - 3, 2);
-    } else {
-        // if all values are identical it yields an undefined kurtosis, which we'll treat as null
-        fi_kurtosis = null;
-    }
-
-    // first skew stength
-    let skewSeverity;
-    let skewDirection;
-    // skew strength
-    if(Math.abs(fi_skewness > 0.25)) {
-        skewSeverity = "slight"
-
-        if(Math.abs(fi_skewness > 0.5)) {
-            skewSeverity = "moderate"
-
-            if(Math.abs(fi_skewness > 1)) {
-                skewSeverity = "substantial"
-            }
-        }
-        // skew direction
-        if(fi_skewness > 0) {
-            skewDirection = "positive (right)" // AKA right skew
-        }
-        else {
-            skewDirection = "negative (left)" // AKA left skew
-        }  
-    } else {
-        skewSeverity = "none"
-        skewDirection = "none"
-    }
-
-    // then kurtosis
-    let kurtosisSeverity;
-    if (fi_kurtosis > 2){
-        kurtosisSeverity = "peaked"
-        // clamping kurtosis at 2 for extremely high values
-    } else if(fi_kurtosis < -2){
-        kurtosisSeverity = "flat"
-        // clamping kurtosis at -2 for extremely low values
-        } else {
-        kurtosisSeverity = "none"
-    }
-
-    // interpret modalityif possible
-    // let modalityInterp;
-
-    // assembling a dictionary of the statistics
-    statsSummary = {
-        'length' : values.length,
-        'min' : fi_min,
-        'max' : fi_max,
-        'mean' : fi_mean,
-        'median' : fi_median,
-        'std' : fi_std,
-        'skewness' : fi_skewness,
-        'kurtosis' : fi_kurtosis,
-        'skewSeverity' : skewSeverity,
-        'skewDirection' : skewDirection,
-        'kurtosisSeverity' : kurtosisSeverity
-    }
-    
-    console.log('STATS SUMMARY', statsSummary);
-    return statsSummary
-
-}
 
 /* 
 LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
 */
-function buildDescription(){
+function buildDescription(summaryStats) {
+    console.log("Building a description for the summary statistics:", summaryStats);
 
-    const descParts = []
+    const descParts = [];
 
-    descParts.push(`${selectedField.alias} has a value range of ${statsSummary.min.toLocaleString()} to ${statsSummary.max.toLocaleString()}, with a mean of ${statsSummary.mean.toLocaleString()} and a median of ${statsSummary.median.toLocaleString()}`);
+    descParts.push(
+        `${selectedField.alias} has a value range of ${DecimalPrecision2.round(summaryStats.min, 2).toLocaleString()} to ${DecimalPrecision2.round(summaryStats.max, 2).toLocaleString()}, with a mean of ${DecimalPrecision2.round(summaryStats.avg, 2).toLocaleString()} and a median of ${DecimalPrecision2.round(summaryStats.median, 2).toLocaleString()}. With a skewness of ${DecimalPrecision2.round(summaryStats.skewness, 2).toLocaleString()}, the distribution shows`
+    );
 
-    // skew
-    if (statsSummary.skewSeverity && statsSummary.skewSeverity.toLowerCase() !== "none"){
-        descParts.push(`The distribution has a skewness of ${statsSummary.skewness}, exhibiting ${statsSummary.skewSeverity} ${statsSummary.skewDirection} skew.`);
-    } else{
-        descParts.push('The distribution shows no noticeable skew.');
+    // Skew severity & direction
+    const skewAbs = Math.abs(summaryStats.skewness);
+
+    if (skewAbs > 0.25) {
+        let severity;
+        if (skewAbs > 1) {
+            severity = "substantial";
+        } else if (skewAbs > 0.5) {
+            severity = "moderate";
+        } else {
+            severity = "slight";
+        }
+
+        const direction = summaryStats.skewness > 0 ? "positive (right)" : "negative (left)";
+        descParts.push(`${severity} ${direction} skew.`);
+    } else {
+        descParts.push(" no noticeable skew.");
+
     }
 
+    calculateFieldKurtosis();
+    // // Kurtosis severity
+    // const kurtosisAbs = Math.abs(summaryStats.kurtosis);
+    // let kurtosisSeverity;
+    // if (kurtosisAbs > 1) {
+    //     kurtosisSeverity = "leptokurtic (peaked)";
+    // } else if (kurtosisAbs < -1) {
+    //     kurtosisSeverity = "platykurtic (flat)";
+    // } else {
+    //     kurtosisSeverity = "approximately normal";
+    // }
     // kurtosis
-    if (statsSummary.kurtosisSeverity && statsSummary.kurtosisSeverity.toLowerCase() !== 'none'){
-        descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, indicating a ${statsSummary.kurtosisSeverity} distribution.`)
-    } else{
-        descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, approximately normal.`);
-    }
-    
-    return descParts.join(" ");
+    // if (statsSummary.kurtosisSeverity && statsSummary.kurtosisSeverity.toLowerCase() !== 'none'){
+    //     descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, indicating a ${statsSummary.kurtosisSeverity} distribution.`)
+    // } else{
+    //     descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, approximately normal.`);
+    // }
 
+    // descParts.push(
+    //     `The data has a kurtosis of ${DecimalPrecision2.round(summaryStats.kurtosis, 2).toLocaleString()}, indicating a ${kurtosisSeverity} distribution.`
+    // );
+
+    return descParts.join(" ");
+}
+ 
+
+/* 
+LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
+*/
+function calculateFieldKurtosis(){
+    
+    // first getting all the data from the field
+    getData();
+    // var t0 = performance.now();
+
+    // getData().then(function(res) {
+    //     var t1 = performance.now();
+    //     console.log("Query took " + Math.floor(t1 - t0) + " milliseconds.");
+    //     console.log(res);
+    // })
 }
 
-async function createHistogramForField(ramp) {
+async function populateDialogForField(ramp) {
   try {
 
+    /* 
+    FIRST CALCULATING SUMAMRY STATISTICS
+    */
     // gathering summary statistics from the selected field of the active feature layer
     const stats = await summaryStatistics({
       layer: mapFeatureLayer,
       field: selectedField.name
     });
 
-    console.log("statistics generate", stats);
+    // console.log("statistics generated from field", stats); // log for debug
 
     // error handling for sparse distributions with low record count
     if(stats.count < 20){
@@ -687,13 +622,15 @@ async function createHistogramForField(ramp) {
     }
 
     // inserting skew and kurtosis as additional statistics into the dictionary
-    stats['skewness'] = 3 * (stats.mean - stats.median) / stats.stddev // from pearson's median skewness
-
+    stats['skewness'] = 3 * (stats.avg - stats.median) / stats.stddev // from pearson's median skewness
 
     // we'll hold off on calculating kurtosis for now, as that will require querying ALL records from the field
-    // for now we'll put intermediate stops at midpoints
-    // stats['kurtosis'] = calculateKurtosis
+    // for now we'll put intermediate stops at 1 sd above and below the mean
+    // stats['kurtosis'] = calculateFieldKurtosis();
 
+    /* 
+    CREATING A RENDERER FOR THE MAP
+    */
     // grabbing the green-purple color scheme to use in the map
     const matchingScheme = getSchemeByName({
         basemap: mapView.map.basemap,
@@ -710,14 +647,17 @@ async function createHistogramForField(ramp) {
         theme: "above-and-below",
         colorScheme: matchingScheme
     }
-    
+     
     // creating continuous renderer using the given color scheme
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
     // qapplying the selected color ramp to the map rendering
     mapFeatureLayer.renderer = rendererResult.renderer;
     mapFeatureLayer.visible = true;
-    console.log("RENDERER INFO  ", mapFeatureLayer.renderer);
+    // console.log("RENDERER INFO  ", mapFeatureLayer.renderer); // log for debug
 
+    /* 
+    UPDATING THE SLIDER 
+    */
     // grabbing the slider element & using the stats to adjust it
     const sliderElement = document.getElementById("color-slider");
     sliderElement.min = stats.min;
@@ -725,9 +665,11 @@ async function createHistogramForField(ramp) {
     // 5 stop slider
     sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max];
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
-    console.log("color slider created", sliderElement); // log for debug
+    // console.log("color slider created", sliderElement); // log for debug
     
-
+    /* 
+    UPDATING THE HISTOGRAM A RENDERER FOR THE MAP
+    */
     // grabbing the histogram element and using the stats to adjust it
     const histogramResult = await histogram({
         layer: mapFeatureLayer,
@@ -751,7 +693,7 @@ async function createHistogramForField(ramp) {
 
     histogramElement.colorBlendingEnabled = true;
 
-    console.log("Histogram created", histogramResult); // log for debug
+    // console.log("Histogram created", histogramResult); // log for debug
 
     /* 
     LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
@@ -788,7 +730,7 @@ async function createHistogramForField(ramp) {
         // assigning the new slider stops to the histogram color stops 
         histogramElement.colorStops = newStops;
         sliderValues = [...sliderElement.values];
-        console.log("Updated histogram color stops", histogramElement.colorStops);
+        // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug
 
         // here we need to update the map renderer 
         updateRendererFromSlider();
@@ -796,7 +738,9 @@ async function createHistogramForField(ramp) {
 
     // Initial setup
     let sliderValues = sliderElement.values;
+    // grabbing the switch from the DOM
     const updateSwitch = document.getElementById("update-switch");
+    // attaching the proper event listener
     attachSliderListener(updateSwitch.value);
 
     // Switch change handling
@@ -839,8 +783,17 @@ async function createHistogramForField(ramp) {
         renderer.visualVariables[colorVarIndex] = colorVariable;
         mapFeatureLayer.renderer = renderer;
 
-        console.log("Renderer updated:", renderer.visualVariables[colorVarIndex].stops);
+        // console.log("Renderer updated:", renderer.visualVariables[colorVarIndex].stops); // renderer updated
     }
+
+
+    // then we enable the switch for the user to prevent before the histogram is generated
+    updateSwitch.disabled = false;
+    
+    /* 
+    BUILDING THE DESCRIPTION FOR THE SELECTED FIELD
+    */
+    return buildDescription(stats);
     
 } catch (err) {
     console.error("Error creating histogram:", err);
@@ -852,7 +805,6 @@ async function createHistogramForField(ramp) {
 /* 
 HELPER FUNCTIONS
 */
-
 // FUNCTION FOR DIPLAYING WARNING MESSAGE
 function warnUser(message){
   // clear any existing warnings
@@ -885,4 +837,32 @@ function determineSliderChanges(arr1, arr2) {
     .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
 }
 
+// ASYNC FUNCTION FOR QUERYING ALL DATA FROM A FIELD
+async function getData(){
+    // var numRecords = await arcgisRest.queryFeatures({
+    //     url: mapFeatureLayer,
+    //     returnCountOnly: true
+    // });
 
+    // console.log("Total feature count", numRecords); // log for debug
+    
+    // let promises = [];
+    // let data = [];
+    // const maxRecordCount = 1000; // in batches of 1000
+
+    // // looping through the records in batches of maxRecordCount
+    // for (var i = 0; i < numRecords; i += maxRecordCount) {
+    //     let q = arcgisRest.queryFeatures({
+    //         url: url,
+    //         resultOffset: i,
+    //         resultRecordCount: maxRecordCount
+    //     });
+    //     promises.push(q);
+    // }
+    // let dataArr = await Promise.all(promises);
+
+    // for (const res of dataArr) {
+    //     data = data.concat(res.features);
+    // }
+    // return data; 
+}

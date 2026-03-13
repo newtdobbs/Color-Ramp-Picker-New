@@ -294,3 +294,110 @@ LOGIC FOR RECOMMENDING A COLORRAMP
 
 //     return colorRampRec;
 // }
+
+    /* 
+    LOGIC FOR CALCULATING STATISTICS ON A GIVEN FIELD
+*/
+let statsSummary;
+async function calculateFieldStats(layer, field) {
+
+    // need to ensure this query returns more than 1000 values if applicable
+    const query = layer.createQuery();
+    query.where = "1=1";
+    query.outFields = [field.name];
+    query.returnGeometry = false;
+
+    // here we query all the features for the selected field, filtering out null/undefined/NaN values
+    const result = await layer.queryFeatures(query);
+    const removeValues = [null, undefined, NaN]
+    const values = result.features.map(f => f.attributes[field.name]).filter(Boolean); // the array of values in the selected field after filtering 
+    fieldValues = values; // assigning the filtered values from the selected field to the fieldValues global object
+
+    let desc = "";
+    
+    // can print values for debug
+    console.log('number of values from field:', values.length);
+    
+    // error handling for sparse distributions, taken AFTER the validity filter
+    if (values.length <= 10) {
+        desc = `With only ${values.length} observtaions, for now we'll refrain from calculating statistics`
+        return desc;
+    }
+
+    const fi_mean = DecimalPrecision2.round(math.mean(values), 2);
+    const fi_median = DecimalPrecision2.round(math.median(values), 2);
+    const fi_std = DecimalPrecision2.round(math.std(values), 2);
+    const fi_min = DecimalPrecision2.round(math.min(values), 2);
+    const fi_max = DecimalPrecision2.round(math.max(values), 2);
+    const fi_skewness = DecimalPrecision2.round(3 * (math.mean(values) - math.median(values)) / math.std(values), 2);
+
+    let fi_kurtosis;
+    if (fi_std !== 0) {
+        // excess kurtosis = average of the fourth standardized moment minus 3
+        // a normal distribution  has a kurtosis of 3
+        fi_kurtosis = DecimalPrecision2.round(math.mean(values.map(v => Math.pow((v - fi_mean) / fi_std, 4))) - 3, 2);
+    } else {
+        // if all values are identical it yields an undefined kurtosis, which we'll treat as null
+        fi_kurtosis = null;
+    }
+
+    // first skew stength
+    let skewSeverity;
+    let skewDirection;
+    // skew strength
+    if(Math.abs(fi_skewness > 0.25)) {
+        skewSeverity = "slight"
+
+        if(Math.abs(fi_skewness > 0.5)) {
+            skewSeverity = "moderate"
+
+            if(Math.abs(fi_skewness > 1)) {
+                skewSeverity = "substantial"
+            }
+        }
+        // skew direction
+        if(fi_skewness > 0) {
+            skewDirection = "positive (right)" // AKA right skew
+        }
+        else {
+            skewDirection = "negative (left)" // AKA left skew
+        }  
+    } else {
+        skewSeverity = "none"
+        skewDirection = "none"
+    }
+
+    // then kurtosis
+    let kurtosisSeverity;
+    if (fi_kurtosis > 2){
+        kurtosisSeverity = "peaked"
+        // clamping kurtosis at 2 for extremely high values
+    } else if(fi_kurtosis < -2){
+        kurtosisSeverity = "flat"
+        // clamping kurtosis at -2 for extremely low values
+        } else {
+        kurtosisSeverity = "none"
+    }
+
+    // interpret modalityif possible
+    // let modalityInterp;
+
+    // assembling a dictionary of the statistics
+    statsSummary = {
+        'length' : values.length,
+        'min' : fi_min,
+        'max' : fi_max,
+        'mean' : fi_mean,
+        'median' : fi_median,
+        'std' : fi_std,
+        'skewness' : fi_skewness,
+        'kurtosis' : fi_kurtosis,
+        'skewSeverity' : skewSeverity,
+        'skewDirection' : skewDirection,
+        'kurtosisSeverity' : kurtosisSeverity
+    }
+    
+    console.log('STATS SUMMARY', statsSummary);
+    return statsSummary
+
+}
