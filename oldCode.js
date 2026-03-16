@@ -401,3 +401,25 @@ async function calculateFieldStats(layer, field) {
     return statsSummary
 
 }
+
+
+
+// let promises = [];
+    // let data = [];
+    // const maxRecordCount = 1000; // in batches of 1000
+
+    // // looping through the records in batches of maxRecordCount
+    // for (var i = 0; i < numRecords; i += maxRecordCount) {
+    //     let q = arcgisRest.queryFeatures({
+    //         url: url,
+    //         resultOffset: i,
+    //         resultRecordCount: maxRecordCount
+    //     });
+    //     promises.push(q);
+    // }
+    // let dataArr = await Promise.all(promises);
+
+    // for (const res of dataArr) {
+    //     data = data.concat(res.features);
+    // }
+    // return data;

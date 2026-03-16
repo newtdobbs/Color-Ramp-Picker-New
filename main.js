@@ -16,7 +16,7 @@ import "@arcgis/common-components/components/arcgis-slider";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
-// const ApiKeyManager = require("@esri/arcgis-rest-request");
+import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -516,12 +516,12 @@ generateButton.addEventListener("click", async () => {
         desc.slot = "content-bottom";
         
         bottomDialog.appendChild(desc);
+        bottomDialog.loading = false;
         
     } catch(err){
         console.log("Error generating histogram:", err)
         bottomDialog.heading = `Error Generating Color Ramp Information for ${selectedField.alias}`
     }
-    bottomDialog.loading = false;
     bottomDialog.open = true;
         
 });
@@ -531,7 +531,7 @@ generateButton.addEventListener("click", async () => {
 /* 
 LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
 */
-function buildDescription(summaryStats) {
+async function buildDescription(summaryStats) {
     console.log("Building a description for the summary statistics:", summaryStats);
 
     const descParts = [];
@@ -559,28 +559,19 @@ function buildDescription(summaryStats) {
         descParts.push(" no noticeable skew.");
 
     }
-
-    calculateFieldKurtosis();
+    console.log(`For ${selectedField.name}, kurtosis has been calculated as ${summaryStats.kurtosis}`)
+    
     // // Kurtosis severity
-    // const kurtosisAbs = Math.abs(summaryStats.kurtosis);
-    // let kurtosisSeverity;
-    // if (kurtosisAbs > 1) {
-    //     kurtosisSeverity = "leptokurtic (peaked)";
-    // } else if (kurtosisAbs < -1) {
-    //     kurtosisSeverity = "platykurtic (flat)";
-    // } else {
-    //     kurtosisSeverity = "approximately normal";
-    // }
-    // kurtosis
-    // if (statsSummary.kurtosisSeverity && statsSummary.kurtosisSeverity.toLowerCase() !== 'none'){
-    //     descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, indicating a ${statsSummary.kurtosisSeverity} distribution.`)
-    // } else{
-    //     descParts.push(`The data has a kurtosis of ${statsSummary.kurtosis}, approximately normal.`);
-    // }
-
-    // descParts.push(
-    //     `The data has a kurtosis of ${DecimalPrecision2.round(summaryStats.kurtosis, 2).toLocaleString()}, indicating a ${kurtosisSeverity} distribution.`
-    // );
+    const kurtosisAbs = Math.abs(summaryStats.kurtosis);
+    let kurtosisSeverity;
+    if (kurtosisAbs > 1) {
+        kurtosisSeverity = "a leptokurtic (peaked)";
+    } else if (kurtosisAbs < -1) {
+        kurtosisSeverity = "a platykurtic (flat)";
+    } else {
+        kurtosisSeverity = "an approximately normal";
+    }
+    descParts.push(`The data has a kurtosis of ${DecimalPrecision2.round(summaryStats.kurtosis, 2).toLocaleString()}, indicating ${kurtosisSeverity} distribution.`)
 
     return descParts.join(" ");
 }
@@ -589,17 +580,24 @@ function buildDescription(summaryStats) {
 /* 
 LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
 */
-function calculateFieldKurtosis(){
-    
-    // first getting all the data from the field
-    getData();
-    // var t0 = performance.now();
+async function calculateFieldKurtosis(statsDictionary) {
+  const t0 = performance.now();
 
-    // getData().then(function(res) {
-    //     var t1 = performance.now();
-    //     console.log("Query took " + Math.floor(t1 - t0) + " milliseconds.");
-    //     console.log(res);
-    // })
+  const data = await getData(); // wait for all features
+  const t1 = performance.now();
+  console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`);
+
+  // 
+  const values = data.features.map(f => f.attributes[selectedField.name]);
+
+  // calculating fourth moement
+  let numerator = math.sum(values.map(v => Math.pow(v - statsDictionary.avg, 4)));
+  numerator /= statsDictionary.count;
+
+  // dividing by std dev to fourth power and subtract 3 for excess kurtosis
+  const kurtosis = (numerator / Math.pow(statsDictionary.stddev, 4)) - 3;
+
+  return kurtosis;
 }
 
 async function populateDialogForField(ramp) {
@@ -626,7 +624,7 @@ async function populateDialogForField(ramp) {
 
     // we'll hold off on calculating kurtosis for now, as that will require querying ALL records from the field
     // for now we'll put intermediate stops at 1 sd above and below the mean
-    // stats['kurtosis'] = calculateFieldKurtosis();
+    stats['kurtosis'] = await calculateFieldKurtosis(stats);
 
     /* 
     CREATING A RENDERER FOR THE MAP
@@ -665,6 +663,14 @@ async function populateDialogForField(ramp) {
     // 5 stop slider
     sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max];
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
+    sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
+    // function for formatting labels (with color?)
+    sliderElement.labelFormatter = (value, type, defaultFormatter) => {
+        if (type === "min") return `start: ${value}`;
+        if (type === "max") return `end: ${value}`;
+        return `val: ${value}<br>rgb(29,10,2947)`;
+    };
+
     // console.log("color slider created", sliderElement); // log for debug
     
     /* 
@@ -684,11 +690,11 @@ async function populateDialogForField(ramp) {
     
     // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
     histogramElement.colorStops = [
-        { "color": [129, 0, 230], "value": stats.min}, // first stop, min value at purple
-        { "color": [179, 96, 209], "value": stats.avg - stats.stddev }, // stop 2, purpley
-        { "color": [242, 207, 158], "value": stats.avg }, // middle stop, mean at yellow
-        { "color": [110, 184, 48], "value": stats.avg + stats.stddev}, // stop 4, greenish
-        { "color": [43, 153, 0], "value": stats.max } // last stop, max value at green
+        { "color": [129, 0, 230], "value": DecimalPrecision2.round(stats.min, 2)}, // first stop, min value at purple
+        { "color": [179, 96, 209], "value": DecimalPrecision2.round(stats.avg - stats.stddev, 2) }, // stop 2, purpley
+        { "color": [242, 207, 158], "value": DecimalPrecision2.round(stats.avg, 2) }, // middle stop, mean at yellow
+        { "color": [110, 184, 48], "value": DecimalPrecision2.round(stats.avg + stats.stddev, 2) }, // stop 4, greenish
+        { "color": [43, 153, 0], "value": DecimalPrecision2.round(stats.max, 2) } // last stop, max value at green
     ];
 
     histogramElement.colorBlendingEnabled = true;
@@ -793,7 +799,7 @@ async function populateDialogForField(ramp) {
     /* 
     BUILDING THE DESCRIPTION FOR THE SELECTED FIELD
     */
-    return buildDescription(stats);
+    return await buildDescription(stats);
     
 } catch (err) {
     console.error("Error creating histogram:", err);
@@ -837,32 +843,21 @@ function determineSliderChanges(arr1, arr2) {
     .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
 }
 
-// ASYNC FUNCTION FOR QUERYING ALL DATA FROM A FIELD
-async function getData(){
-    // var numRecords = await arcgisRest.queryFeatures({
-    //     url: mapFeatureLayer,
-    //     returnCountOnly: true
-    // });
+// FUNCTION FOR QUERYING ALL DATA FROM A FIELD
+async function getData() {
+  try {
+    console.log("grabbing item from the URL: ", mapFeatureLayer.parsedUrl);
 
-    // console.log("Total feature count", numRecords); // log for debug
-    
-    // let promises = [];
-    // let data = [];
-    // const maxRecordCount = 1000; // in batches of 1000
+    const results = await queryAllFeatures({
+      url: mapFeatureLayer.parsedUrl.path,
+      outFields: [selectedField.name]
+    });
 
-    // // looping through the records in batches of maxRecordCount
-    // for (var i = 0; i < numRecords; i += maxRecordCount) {
-    //     let q = arcgisRest.queryFeatures({
-    //         url: url,
-    //         resultOffset: i,
-    //         resultRecordCount: maxRecordCount
-    //     });
-    //     promises.push(q);
-    // }
-    // let dataArr = await Promise.all(promises);
-
-    // for (const res of dataArr) {
-    //     data = data.concat(res.features);
-    // }
-    // return data; 
+    console.log('full query results', results) // log for debug
+    return results;
+  } catch (err) {
+    warnUser(`Error querying all features for field: ${selectedField.name}`);
+    console.error('err', err);
+    return null;
+  }
 }

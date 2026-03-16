@@ -55,15 +55,21 @@
       <div class="map-frame" id="main-map"></div>
       <calcite-dialog placement="bottom" heading="Color Ramp Information for" scale="l" id="bottom-dialog" kind="success" resizable width="l">
           <div style="display:flex;gap:2%;width:100%;height:100%;align-content:center;justify-content:center;align-items:center;">
-            <arcgis-slider id="color-slider" value-labels-display="always" style="width:95%;max-width:100%;box-sizing:border-box;" layout="horizontal">
+            <arcgis-slider id="color-slider" value-labels-display="always"  style="width:95%;max-width:100%;box-sizing:border-box;" layout="horizontal">
               <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal" ></arcgis-histogram>
+                <div
+                  slot="content-end"
+                  style="flex:1;background-color:#00BCD4;display:flex;justify-content:center;align-items:center;height:100px;"
+                >
+                  content-end
+                </div>
             </arcgis-slider>
             <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
             <calcite-label layout="inline" slot="footer-end">
-                Discrete
+                Static
                 <!-- adding a switch with a default value of "discrete" -->
                 <calcite-switch disabled id="update-switch" value="discrete"></calcite-switch>
-                Continuous
+                Responsive
             </calcite-label>
           </div>
         <div id="dialog-description" slot="footer"></div>
