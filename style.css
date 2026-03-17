@@ -37,3 +37,11 @@ calcite-rating {
   flex-direction: column;
   gap: 10% vh;
 }
+
+/* class to style vertical lines for color ramp breaks */
+.vertical {
+  border-left: 6px solid blue;
+  height: 40px;
+  position:absolute;
+  left: 50%;
+}

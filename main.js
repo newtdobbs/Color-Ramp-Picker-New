@@ -665,14 +665,30 @@ async function populateDialogForField(ramp) {
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
     // function for formatting labels (with color?)
-    sliderElement.labelFormatter = (value, type, defaultFormatter) => {
-        if (type === "min") return `start: ${value}`;
-        if (type === "max") return `end: ${value}`;
-        return `val: ${value}<br>rgb(29,10,2947)`;
-    };
+    // sliderElement.labelFormatter = (value, type, defaultFormatter) => {
+    //     if (type === "min") return `start: ${value}`;
+    //     if (type === "max") return `end: ${value}`;
+    //     return `val: ${value}<br>rgb(29,10,2947)`;
+    // };
 
     // console.log("color slider created", sliderElement); // log for debug
-    
+
+    /* 
+    UPDATING THE COLOR SWATCH
+    */
+    function updateColorSwatchFromStops(colorStops) {
+        const swatch = document.getElementById("color-swatch");
+        const min = histogramElement.min;
+        const max = histogramElement.max;
+
+        const gradientParts = colorStops.map(stop => {
+            const percent = ((stop.value - min) / (max - min)) * 100;
+            return `rgb(${stop.color.join(",")}) ${percent}%`;
+        });
+
+        swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
+    } 
+
     /* 
     UPDATING THE HISTOGRAM A RENDERER FOR THE MAP
     */
@@ -696,6 +712,8 @@ async function populateDialogForField(ramp) {
         { "color": [110, 184, 48], "value": DecimalPrecision2.round(stats.avg + stats.stddev, 2) }, // stop 4, greenish
         { "color": [43, 153, 0], "value": DecimalPrecision2.round(stats.max, 2) } // last stop, max value at green
     ];
+
+    updateColorSwatchFromStops(histogramElement.colorStops);
 
     histogramElement.colorBlendingEnabled = true;
 
@@ -740,6 +758,10 @@ async function populateDialogForField(ramp) {
 
         // here we need to update the map renderer 
         updateRendererFromSlider();
+
+        // here we update the color swatches
+        updateColorSwatchFromStops(histogramElement.colorStops);
+
     }
 
     // Initial setup
@@ -788,6 +810,7 @@ async function populateDialogForField(ramp) {
 
         renderer.visualVariables[colorVarIndex] = colorVariable;
         mapFeatureLayer.renderer = renderer;
+
 
         // console.log("Renderer updated:", renderer.visualVariables[colorVarIndex].stops); // renderer updated
     }
