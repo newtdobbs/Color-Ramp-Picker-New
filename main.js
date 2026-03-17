@@ -17,6 +17,12 @@ import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
+// import kurtosis from "@stdlib/stats-base-dists-normal-kurtosis";
+// import kurtosis from "@stdlib/stats-base-dists-normal-kurtosis";
+import incrkurtosis from "@stdlib/stats-incr-kurtosis";
+import { ArcgisValuePickerLegacy } from "@arcgis/map-components/components/arcgis-value-picker-legacy";
+
+
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -506,7 +512,7 @@ generateButton.addEventListener("click", async () => {
     try {
         
         // updating the dialog header
-        bottomDialog.heading = `Color Ramp Information for ${selectedField.alias}`
+        bottomDialog.heading = `Color Ramp Information for ${selectedField.name} (${selectedField.alias})`
         
         // building the histogram for the selected field's data
         
@@ -581,23 +587,23 @@ async function buildDescription(summaryStats) {
 LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
 */
 async function calculateFieldKurtosis(statsDictionary) {
-  const t0 = performance.now();
+    const t0 = performance.now();
 
-  const data = await getData(); // wait for all features
-  const t1 = performance.now();
-  console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`);
+    const data = await getData(); // wait for all features
+    const t1 = performance.now();
+    console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`);
+    // const values = data.features.map(f => f.attributes[selectedField.name]); 
 
-  // 
-  const values = data.features.map(f => f.attributes[selectedField.name]);
+    var accumulator = incrkurtosis();
+    data.features.forEach(f => {
+        const value = f.attributes[selectedField.name]; // this is what actually gets the field value
+        if (typeof value === "number" && !isNaN(value)) {
+            accumulator(value);
+        }
+    });
+    // console.log("Accumulated kurtosis:", accumulator()); // log for debug
 
-  // calculating fourth moement
-  let numerator = math.sum(values.map(v => Math.pow(v - statsDictionary.avg, 4)));
-  numerator /= statsDictionary.count;
-
-  // dividing by std dev to fourth power and subtract 3 for excess kurtosis
-  const kurtosis = (numerator / Math.pow(statsDictionary.stddev, 4)) - 3;
-
-  return kurtosis;
+    return accumulator();
 }
 
 async function populateDialogForField(ramp) {

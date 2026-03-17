@@ -16,6 +16,8 @@
     "@esri/arcgis-rest-feature-service": "^4.10.1",
     "@esri/arcgis-rest-request": "^4.10.1",
     "@esri/calcite-components": "^5.0.2",
+    "@stdlib/stats-base-dists-normal-kurtosis": "^0.3.1",
+    "@stdlib/stats-incr-kurtosis": "^0.2.3",
     "compute-kurtosis": "^1.0.0",
     "mathjs": "^15.1.1",
     "statistics.js": "^1.0.0"
