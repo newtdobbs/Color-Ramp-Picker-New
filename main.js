@@ -672,6 +672,7 @@ async function populateDialogForField(ramp) {
      
     // creating continuous renderer using the given color scheme
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
+
     // qapplying the selected color ramp to the map rendering
     mapFeatureLayer.renderer = rendererResult.renderer;
     mapFeatureLayer.visible = true;
@@ -682,8 +683,8 @@ async function populateDialogForField(ramp) {
     */
     // grabbing the slider element & using the stats to adjust it
     const sliderElement = document.getElementById("color-slider");
-    sliderElement.min = stats.min;
     sliderElement.max = stats.max;
+    sliderElement.min = stats.min;
     // 5 stop slider
     sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max]; // defaulting to min, max, mean, 1sd above and below mean
     // Initial setup
@@ -790,6 +791,7 @@ async function populateDialogForField(ramp) {
     // console.log("Histogram created", histogramResult); // log for debug
 
 
+
     /* 
     LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
     */    
@@ -808,6 +810,9 @@ async function populateDialogForField(ramp) {
 
 
     function sliderHandler() {
+
+        console.log(`Slider elemnent active value ${sliderElement.activeValue}`)
+
         // FIRST, DETERMINING THE SLIDER CHANGES
         const sliderChanges = determineSliderChanges(sliderValues, sliderElement.values);
         const oldIndex = sliderChanges[0];
