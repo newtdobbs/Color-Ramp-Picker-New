@@ -592,7 +592,7 @@ async function calculateSkewAndKurtosis(statsDictionary) {
 
     const data = await getData(); // wait for all features
     const t1 = performance.now();
-    console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`);
+    // console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`); // log for debug
     const values = data.features.map(f => f.attributes[selectedField.name]); // this is what actually gets the data value in the selected field for each feature 
 
     const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v));
@@ -620,7 +620,7 @@ async function calculateSkewAndKurtosis(statsDictionary) {
             });
     const kurtosis = accumulator();
 
-    console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`)
+    // console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // lkog for debug
 
     // returning a list with these two items    
     return [sampleSkew, kurtosis];
@@ -685,9 +685,14 @@ async function populateDialogForField(ramp) {
     sliderElement.min = stats.min;
     sliderElement.max = stats.max;
     // 5 stop slider
-    sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max];
+    sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max]; // defaulting to min, max, mean, 1sd above and below mean
+    // Initial setup
+    let sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
+    console.log(`sliderValues represented as ${sliderValues}`)
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
+    sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
+
     // addding a popover
     sliderElement.popoverPlacement = "start";
     const popover = document.createElement('div');
@@ -696,14 +701,38 @@ async function populateDialogForField(ramp) {
     sliderElement.poopoverLabel = "Color Slider RGB Value";
     sliderElement.appendChild(popover);
 
-    function updatePopoverText(val, idx){
+
+    function updatePopoverText(newIndex, val){
         
+        let rampMin =  stats.min; // the min value of the color ramp
+        let rampMax = stats.max; // the max value of the color ramp 
+        // console.log(`Slider stretches from ${rampMin} to ${rampMax}`); // log for debug
+
         // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
         
+        // finding the stop below the color value
+        let stops = histogramElement.colorStops;
+        
+        let lowerStop = stops[0];
+        let upperStop = stops[stops.length - 1];
+        for (let i = 0; i < stops.length - 1; i++){
+            if(val >= stops[i].value && val <= stops[i + 1].value) {
+                lowerStop = stops[i];
+                upperStop = stops[i + 1];
+                break;
+            } 
+        }
+        
+        // Calculate percent between these two stops
+        let percent = (val - lowerStop.value) / (upperStop.value - lowerStop.value);
+        console.log(`Slider ${newIndex} is now at ${percent * 100}% between stops ${lowerStop.color} and ${upperStop.color}`); // using the NEW index here to calculate color position
 
+        // Interpolate RGB channels
+        let resultRed   = Math.round(lowerStop.color[0] + percent * (upperStop.color[0] - lowerStop.color[0]));
+        let resultGreen = Math.round(lowerStop.color[1] + percent * (upperStop.color[1] - lowerStop.color[1]));
+        let resultBlue  = Math.round(lowerStop.color[2] + percent * (upperStop.color[2] - lowerStop.color[2]));
 
-        // then we'll need to update the popover
-        popover.textContent = `rgb ${histogramElement.colorStops[idx].color}`
+        popover.textContent = `rgb(${resultRed}, ${resultGreen}, ${resultBlue})`;
     }
 
     
@@ -739,8 +768,7 @@ async function populateDialogForField(ramp) {
     const histogramResult = await histogram({
         layer: mapFeatureLayer,
         field: selectedField.name,
-        numBins: Math.min(100, stats.count)
-    });
+        numBins: Math.min(100, stats.count)    });
     
     const histogramElement = document.getElementById("histogram");
     histogramElement.min = histogramResult.minValue;
@@ -756,11 +784,11 @@ async function populateDialogForField(ramp) {
         { "color": [43, 153, 0], "value": DecimalPrecision2.round(stats.max, 2) } // last stop, max value at green
     ];
 
-    updateColorSwatchFromStops(histogramElement.colorStops);
+    updateColorSwatchFromStops(histogramElement.colorStops); // populating the color swatch after creating our histogram
 
     histogramElement.colorBlendingEnabled = true;
+    // console.log("Histogram created", histogramResult); // log for debug
 
-    console.log("Histogram created", histogramResult); // log for debug
 
     /* 
     LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
@@ -778,24 +806,28 @@ async function populateDialogForField(ramp) {
         }
     }
 
-    // helper fuinction to update the histogram based on slider changes, agnostic to updateSwitch mode
+
     function sliderHandler() {
-        // variable to track which slider was changed, only one at a time
-        const changedSliderIndex = determineSliderChanges(sliderElement.values, sliderValues);
-         // variable to track the new value for a slider, shouldn't matter which slider is changed
-        const changedSliderValue = sliderElement.values[changedSliderIndex];
-        console.log(`Slider ${changedSliderIndex} changed to value ${changedSliderValue}`);
-        
-        // creating an array using the  previous histogram color stops and assigning new values 
-        const newStops = histogramElement.colorStops
+        // FIRST, DETERMINING THE SLIDER CHANGES
+        const sliderChanges = determineSliderChanges(sliderValues, sliderElement.values);
+        const oldIndex = sliderChanges[0];
+        const oldValue = sliderChanges[1];
+        const newIndex = sliderChanges[2];
+        const newValue = sliderChanges[3];
+        // const changedSliderValue = sliderElement.values[changedSliderIndex]; // this is WROONG, ITS just grabbing the 
+
+        // UPDATING THE POPOVER TEXT
+        console.log(`Slider ${oldIndex} changed from ${oldValue} to value ${newValue}, now at position ${newIndex}`);
+        updatePopoverText(newIndex, newValue);
+
+        const newStops = histogramElement.colorStops // looping over the histogram
         .map((colorStop, i) => ({
             ...colorStop,
-            value: sliderElement.values[i]
+            value: sliderElement.values[i] // these are the NEW values currently in the slider
         }))
         .sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
         
-        // assigning the new slider stops to the histogram color stops 
-        histogramElement.colorStops = newStops;
+        histogramElement.colorStops = newStops; // assigning the new slider stops to the histogram color stops 
         sliderValues = [...sliderElement.values];
         // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug
         
@@ -805,13 +837,9 @@ async function populateDialogForField(ramp) {
         // here we update the color swatches
         updateColorSwatchFromStops(histogramElement.colorStops);
         
-        // update the popover text using the stop index to access stop.color
-        console.log(`Slider ${changedSliderIndex} changed to value ${histogramElement.colorStops[changedSliderIndex].color}`); // log for debug
-        updatePopoverText(changedSliderIndex);
     }
 
-    // Initial setup
-    let sliderValues = sliderElement.values;
+  
     // grabbing the switch from the DOM
     const updateSwitch = document.getElementById("update-switch");
     // attaching the proper event listener
@@ -901,16 +929,39 @@ function warnUser(message){
 }
 
 // FUNCTION FOR DETECTING SLIDER CHANGE (AGNOSTIC TO NUMBER OF SLIDERS)
-function determineSliderChanges(arr1, arr2) {
-  // lengths must be equal for a valid index-by-index comparison
-  if (arr1.length !== arr2.length) {
-    console.error("Arrays must have the same length for index-by-index comparison.");
-    return [];
-  }
-  return arr1
-    .map((value, index) => value !== arr2[index] ? index : null) // where arr1 DOESNT match arr2 it converts to the index, for equivalence we leave null
-    .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
+function determineSliderChanges(oldValues, newValues) {
+    // lengths must be equal for a valid index-by-index comparison
+    if (oldValues.length !== newValues.length) {
+        console.error("Arrays must have the same length for index-by-index comparison.");
+        return [];
+    }
+
+    // filter the old array to find the value NOT present in the new array
+    const oldSliderValue = oldValues.filter(val => !newValues.includes(val))[0];
+    // console.log(`Missing value ${oldSliderValue}`); // log for debug
+
+    // find the index in the old array of that missing value 
+    // console.log(`old values: ${oldValues}`); // log for debug
+    const oldSliderIndex = oldValues.indexOf(oldSliderValue);
+    
+    // determining the new value 
+    const newSliderValue = newValues.filter(val => !oldValues.includes(val))[0]; // index 0 as only one should change at a time
+    const newSliderIndex = newValues.indexOf(newSliderValue);
+    // console.log(`Slider ${oldSliderIndex} changed to new value: ${newSliderValue}`); // log for debug
+
+    return [oldSliderIndex, oldSliderValue, newSliderIndex, newSliderValue];
+
 }
+// function determineSliderChanges(arr1, arr2) {
+//   // lengths must be equal for a valid index-by-index comparison
+//   if (arr1.length !== arr2.length) {
+//     console.error("Arrays must have the same length for index-by-index comparison.");
+//     return [];
+//   }
+//   return arr1
+//     .map((value, index) => value !== arr2[index] ? index : null) // where arr1 DOESNT match arr2 it converts to the index, for equivalence we leave null
+//     .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
+// }
 
 // FUNCTION FOR QUERYING ALL DATA FROM A FIELD
 async function getData() {
