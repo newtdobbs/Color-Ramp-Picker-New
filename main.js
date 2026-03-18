@@ -17,12 +17,7 @@ import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
-// import kurtosis from "@stdlib/stats-base-dists-normal-kurtosis";
-// import kurtosis from "@stdlib/stats-base-dists-normal-kurtosis";
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
-import { ArcgisValuePickerLegacy } from "@arcgis/map-components/components/arcgis-value-picker-legacy";
-
-
 
 /* 
 LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
@@ -270,6 +265,10 @@ if (input) {
         createDropdownForService(serviceInfo.layers)
 
         input.value = "";
+
+        if (fieldsList) {
+            fieldsList.innerHTML = "";
+        }
         }
     });
 } else {
@@ -513,6 +512,7 @@ generateButton.addEventListener("click", async () => {
         
         // updating the dialog header
         bottomDialog.heading = `Color Ramp Information for ${selectedField.name} (${selectedField.alias})`
+        bottomDialog.description = `Selected Layer: ${mapFeatureLayer.title}`
         
         // building the histogram for the selected field's data
         
@@ -544,7 +544,7 @@ async function buildDescription(summaryStats) {
 
     descParts.push(
         `${selectedField.alias} has a value range of ${DecimalPrecision2.round(summaryStats.min, 2).toLocaleString()} to ${DecimalPrecision2.round(summaryStats.max, 2).toLocaleString()}, with a mean of ${DecimalPrecision2.round(summaryStats.avg, 2).toLocaleString()} and a median of ${DecimalPrecision2.round(summaryStats.median, 2).toLocaleString()}. With a skewness of ${DecimalPrecision2.round(summaryStats.skewness, 2).toLocaleString()}, the distribution shows`
-    );
+    ); 
 
     // Skew severity & direction
     const skewAbs = Math.abs(summaryStats.skewness);
@@ -583,27 +583,47 @@ async function buildDescription(summaryStats) {
 }
  
 
+
 /* 
 LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
 */
-async function calculateFieldKurtosis(statsDictionary) {
+async function calculateSkewAndKurtosis(statsDictionary) {
     const t0 = performance.now();
 
     const data = await getData(); // wait for all features
     const t1 = performance.now();
     console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`);
-    // const values = data.features.map(f => f.attributes[selectedField.name]); 
+    const values = data.features.map(f => f.attributes[selectedField.name]); // this is what actually gets the data value in the selected field for each feature 
 
-    var accumulator = incrkurtosis();
-    data.features.forEach(f => {
-        const value = f.attributes[selectedField.name]; // this is what actually gets the field value
-        if (typeof value === "number" && !isNaN(value)) {
-            accumulator(value);
-        }
+    const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v));
+    const n = cleanValues.length;
+
+    // third moment
+    let summedDiffs = 0;
+    cleanValues.forEach(v => {
+        summedDiffs += Math.pow(v - statsDictionary.avg, 3);
     });
-    // console.log("Accumulated kurtosis:", accumulator()); // log for debug
+    const thirdMoment = summedDiffs / n;
 
-    return accumulator();
+    // Population skew
+    const populationSkew = thirdMoment / Math.pow(statsDictionary.stddev, 3);
+
+    // Bias correction (sample skew)
+    const sampleSkew = populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
+
+    // then we'll calucalte kurtosis
+    var accumulator = incrkurtosis();
+    cleanValues.forEach(v => {
+            if (typeof v === "number" && !isNaN(v)) {
+                    accumulator(v);
+                }
+            });
+    const kurtosis = accumulator();
+
+    console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`)
+
+    // returning a list with these two items    
+    return [sampleSkew, kurtosis];
 }
 
 async function populateDialogForField(ramp) {
@@ -626,11 +646,9 @@ async function populateDialogForField(ramp) {
     }
 
     // inserting skew and kurtosis as additional statistics into the dictionary
-    stats['skewness'] = 3 * (stats.avg - stats.median) / stats.stddev // from pearson's median skewness
-
-    // we'll hold off on calculating kurtosis for now, as that will require querying ALL records from the field
-    // for now we'll put intermediate stops at 1 sd above and below the mean
-    stats['kurtosis'] = await calculateFieldKurtosis(stats);
+    const skewAndKurtosis = await calculateSkewAndKurtosis(stats); 
+    stats['skewness'] = skewAndKurtosis[0]
+    stats['kurtosis'] = skewAndKurtosis[1];
 
     /* 
     CREATING A RENDERER FOR THE MAP
@@ -670,6 +688,25 @@ async function populateDialogForField(ramp) {
     sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max];
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
+    // addding a popover
+    sliderElement.popoverPlacement = "start";
+    const popover = document.createElement('div');
+    popover.slot = "popover";
+    popover.textContent = ""; // defaulting to an empty popuover, will be updated with slider drag
+    sliderElement.poopoverLabel = "Color Slider RGB Value";
+    sliderElement.appendChild(popover);
+
+    function updatePopoverText(val, idx){
+        
+        // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
+        
+
+
+        // then we'll need to update the popover
+        popover.textContent = `rgb ${histogramElement.colorStops[idx].color}`
+    }
+
+    
     // function for formatting labels (with color?)
     // sliderElement.labelFormatter = (value, type, defaultFormatter) => {
     //     if (type === "min") return `start: ${value}`;
@@ -682,12 +719,12 @@ async function populateDialogForField(ramp) {
     /* 
     UPDATING THE COLOR SWATCH
     */
-    function updateColorSwatchFromStops(colorStops) {
+    function updateColorSwatchFromStops() {
         const swatch = document.getElementById("color-swatch");
         const min = histogramElement.min;
         const max = histogramElement.max;
 
-        const gradientParts = colorStops.map(stop => {
+        const gradientParts = histogramElement.colorStops.map(stop => {
             const percent = ((stop.value - min) / (max - min)) * 100;
             return `rgb(${stop.color.join(",")}) ${percent}%`;
         });
@@ -723,7 +760,7 @@ async function populateDialogForField(ramp) {
 
     histogramElement.colorBlendingEnabled = true;
 
-    // console.log("Histogram created", histogramResult); // log for debug
+    console.log("Histogram created", histogramResult); // log for debug
 
     /* 
     LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
@@ -748,26 +785,29 @@ async function populateDialogForField(ramp) {
          // variable to track the new value for a slider, shouldn't matter which slider is changed
         const changedSliderValue = sliderElement.values[changedSliderIndex];
         console.log(`Slider ${changedSliderIndex} changed to value ${changedSliderValue}`);
-
+        
         // creating an array using the  previous histogram color stops and assigning new values 
         const newStops = histogramElement.colorStops
-            .map((colorStop, i) => ({
+        .map((colorStop, i) => ({
             ...colorStop,
             value: sliderElement.values[i]
-            }))
-            .sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
-
+        }))
+        .sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
+        
         // assigning the new slider stops to the histogram color stops 
         histogramElement.colorStops = newStops;
         sliderValues = [...sliderElement.values];
         // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug
-
+        
         // here we need to update the map renderer 
         updateRendererFromSlider();
-
+        
         // here we update the color swatches
         updateColorSwatchFromStops(histogramElement.colorStops);
-
+        
+        // update the popover text using the stop index to access stop.color
+        console.log(`Slider ${changedSliderIndex} changed to value ${histogramElement.colorStops[changedSliderIndex].color}`); // log for debug
+        updatePopoverText(changedSliderIndex);
     }
 
     // Initial setup
@@ -882,7 +922,7 @@ async function getData() {
       outFields: [selectedField.name]
     });
 
-    console.log('full query results', results) // log for debug
+    // console.log('full query results', results) // log for debug
     return results;
   } catch (err) {
     warnUser(`Error querying all features for field: ${selectedField.name}`);
