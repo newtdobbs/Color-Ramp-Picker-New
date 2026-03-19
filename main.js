@@ -221,11 +221,11 @@ document.querySelector("calcite-action-bar").addEventListener("click", handleAct
 
 let actionBarExpanded = false;
 
-document.addEventListener("calciteActionBarToggle", event => {
-    actionBarExpanded = !actionBarExpanded;
-    let mapElCopyrightText = actionBarExpanded ? "125px" : "45px";
-    mapEl.style.setProperty("--arcgis-layout-overlay-space-left", `${mapElCopyrightText}`);
-});
+// document.addEventListener("calciteActionBarToggle", event => {
+//     actionBarExpanded = !actionBarExpanded;
+//     let mapElCopyrightText = actionBarExpanded ? "125px" : "45px";
+//     mapEl.style.setProperty("--arcgis-layout-overlay-space-left", `${mapElCopyrightText}`);
+// });
 
 /* 
 LOGIC FOR INPUT DIALOG
@@ -252,7 +252,7 @@ if (input) {
             selectedID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
         }
 
-        console.log("first id is", selectedID);
+        // console.log("input AGOL id is", selectedID); // log for debug
 
         // check the layers present in the service
         serviceInfo = await getServiceLayers(selectedID);
@@ -694,6 +694,43 @@ async function populateDialogForField(ramp) {
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
     sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
 
+    // initializing the vertical bars within the swatch
+    const swatch = document.getElementById("color-swatch");
+    sliderElement.values.map((value, index) => {
+        // adding the vertical bars
+        const percent = ((value - stats.min) / (stats.max - stats.min)) * 100; // using stats.min/max to place bars at the full width of the swatch
+        const bar = document.createElement('div'); // creating a div
+        bar.id = `bar${index}`; 
+        bar.classList.add('vertical'); // assigning it to the vertical class so it gets the styles 
+        bar.style.left = `${Math.min(percent, 99.5)}%`; // using the calculated percentate for its horizontal placement along the gradient 
+        swatch.appendChild(bar); // finally adding the bar to the color swatch
+        
+        // adding the plus buttons as well since theres n(stops)-1 bars and n(stops)-1 buttons
+        
+    });
+    
+    // initializing the buttions within the swatch
+    // starting at index 1, and adding buttons at the midpoint of the current and previous stops
+    for(let i = 1; i < sliderElement.values.length; i++ ){
+        
+        // claculating the midpoint value of the current division of the color ramp
+        const midpoint = ((sliderElement.values[i] - sliderElement.values[i-1]) / 2) + sliderElement.values[i-1];
+        // converting it to the percentge of the color ramp's width
+        const midpointPercent = ((midpoint - stats.min) / (stats.max - stats.min)) * 100;
+
+        console.log(`adding button ${i} at midpoint ${midpointPercent}%`);
+        
+        const button = document.createElement('calcite-button'); // creating the calcite button
+        button.iconStart = "plus";
+        button.label = "Add color stop";
+        button.kind = "neutral";
+        button.round = true;
+        button.scale = "s";
+        button.style.left = `${midpointPercent}%` 
+        swatch.appendChild(button);
+    }
+
+
     // addding a popover
     sliderElement.popoverPlacement = "start";
     const popover = document.createElement('div');
@@ -751,17 +788,28 @@ async function populateDialogForField(ramp) {
     */
     function updateColorSwatchFromStops() {
         const swatch = document.getElementById("color-swatch");
-        const min = histogramElement.min;
-        const max = histogramElement.max;
-
-        const gradientParts = histogramElement.colorStops.map(stop => {
+        const min = stats.min;
+        const max = stats.max;
+        
+        const gradientParts = histogramElement.colorStops.map((stop, index) => {
+            // getting the color stop's percentage along based on its value
             const percent = ((stop.value - min) / (max - min)) * 100;
+            
+            // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`);
+
+            // updating the position of the corresponding vertical bar
+            const bar = document.getElementById(`bar${index}`); 
+            bar.style.left = `${Math.min(percent, 99.5)}%`;
+            console.log(`Color stops are currently ${stop.color} at value ${stop.value}`)
+           
+            // finally, returning the color at that stop to actually create the swatch
             return `rgb(${stop.color.join(",")}) ${percent}%`;
         });
+        
 
         swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
     } 
-
+    
     /* 
     UPDATING THE HISTOGRAM A RENDERER FOR THE MAP
     */
@@ -785,7 +833,7 @@ async function populateDialogForField(ramp) {
         { "color": [43, 153, 0], "value": DecimalPrecision2.round(stats.max, 2) } // last stop, max value at green
     ];
 
-    updateColorSwatchFromStops(histogramElement.colorStops); // populating the color swatch after creating our histogram
+    updateColorSwatchFromStops(); // populating the color swatch after creating our histogram
 
     histogramElement.colorBlendingEnabled = true;
     // console.log("Histogram created", histogramResult); // log for debug

@@ -1,3 +1,7 @@
+:root {
+  --bar-height: 40px;
+}
+
 html,
 body,
 #main-map {
@@ -38,10 +42,24 @@ calcite-rating {
   gap: 10% vh;
 }
 
-/* class to style vertical lines for color ramp breaks */
-.vertical {
-  border-left: 6px solid blue;
-  height: 40px;
+#color-swatch{
+  width:100%;
+  height:var(--bar-height);
+  margin-top:20px; 
+  background-color: transparent;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#color-swatch calcite-button {
   position:absolute;
-  left: 50%;
+  top:50%;
+  transform: translateY(-50%);
+}
+
+/* vertical lines for color ramp breaks */
+.vertical {
+  border-left: 3px solid black;
+  height:var(--bar-height);
+  position:absolute;
 }
