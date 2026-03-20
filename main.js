@@ -709,15 +709,21 @@ async function populateDialogForField(ramp) {
         
     });
     
+    function buttonMidpoint(buttonIndex) {
+        // claculating the midpoint value of the current division of the color ramp, the ACTUAL BUTTON LOCATION
+        const mp = ((sliderElement.values[buttonIndex] - sliderElement.values[buttonIndex-1]) / 2) + sliderElement.values[buttonIndex-1];
+        
+        return mp
+    }
+
     // initializing the buttions within the swatch
     // starting at index 1, and adding buttons at the midpoint of the current and previous stops
-    for(let i = 1; i < sliderElement.values.length; i++ ){
+    let buttons = [];
+    for(let i = 1; i < sliderElement.values.length; i++){
         
-        // claculating the midpoint value of the current division of the color ramp
-        const midpoint = ((sliderElement.values[i] - sliderElement.values[i-1]) / 2) + sliderElement.values[i-1];
-        // converting it to the percentge of the color ramp's width
+        // converting it to the percentge of the color ramp's width for css placement
+        const midpoint = buttonMidpoint(i);
         const midpointPercent = ((midpoint - stats.min) / (stats.max - stats.min)) * 100;
-
         console.log(`adding button ${i} at midpoint ${midpointPercent}%`);
         
         const button = document.createElement('calcite-button'); // creating the calcite button
@@ -726,52 +732,89 @@ async function populateDialogForField(ramp) {
         button.kind = "neutral";
         button.round = true;
         button.scale = "s";
+        button.appearance = "outline";
         button.style.left = `${midpointPercent}%` 
+
+
+        // event listener for hover
+        button.addEventListener("mouseenter", (event) => {
+            event.target.style.backgroundColor = "white"; //
+            // console.log("Mouse entered button #", i); // log for debug
+        });
+
+        // event listener when mouse leaves
+        button.addEventListener("mouseleave", (event) => {
+            event.target.style.backgroundColor = ""; 
+            // console.log("Mouse left button #", i); // log for debug
+        });
+
+        // event listener for click to add a color stop at the button's location
+        button.addEventListener("click", () => {
+
+            console.log(`Adding stop for button ${i} at value ${buttonMidpoint(i)}`)
+            
+            // then we should just be able to call updateSliderHandler, which will update histogram, renderer, color swatch, and new button locations
+            // sliderHandler()
+        });
+
         swatch.appendChild(button);
+        buttons.push(button);
+    }
+    
+    function updateButtonLocations(){
+        for(let i = 1; i < sliderElement.values.length; i++){
+            // claculating the midpoint value of the current division of the color ramp
+            const midpoint = ((sliderElement.values[i] - sliderElement.values[i-1]) / 2) + sliderElement.values[i-1];
+            // converting it to the percentge of the color ramp's width
+            const midpointPercent = ((midpoint - stats.min) / (stats.max - stats.min)) * 100;
+            // console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
+            buttons[i - 1].style.left = `${midpointPercent}%`;
+        }
     }
 
 
     // addding a popover
-    sliderElement.popoverPlacement = "start";
-    const popover = document.createElement('div');
-    popover.slot = "popover";
-    popover.textContent = ""; // defaulting to an empty popuover, will be updated with slider drag
-    sliderElement.poopoverLabel = "Color Slider RGB Value";
-    sliderElement.appendChild(popover);
+    // sliderElement.popoverPlacement = "start";
+    // const popover = document.createElement('div');
+    // popover.slot = "popover";
+    // popover.textContent = ""; // defaulting to an empty popuover, will be updated with slider drag
+    // sliderElement.poopoverLabel = "Color Slider RGB Value";
+    // sliderElement.appendChild(popover);
 
 
-    function updatePopoverText(newIndex, val){
+    // think i dont need this popver text until I change it to just the color ramp percentage
+    // function updatePopoverText(newIndex, val){
         
-        let rampMin =  stats.min; // the min value of the color ramp
-        let rampMax = stats.max; // the max value of the color ramp 
-        // console.log(`Slider stretches from ${rampMin} to ${rampMax}`); // log for debug
+    //     let rampMin =  stats.min; // the min value of the color ramp
+    //     let rampMax = stats.max; // the max value of the color ramp 
+    //     // console.log(`Slider stretches from ${rampMin} to ${rampMax}`); // log for debug
 
-        // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
+    //     // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
         
-        // finding the stop below the color value
-        let stops = histogramElement.colorStops;
+    //     // finding the stop below the color value
+    //     let stops = histogramElement.colorStops;
         
-        let lowerStop = stops[0];
-        let upperStop = stops[stops.length - 1];
-        for (let i = 0; i < stops.length - 1; i++){
-            if(val >= stops[i].value && val <= stops[i + 1].value) {
-                lowerStop = stops[i];
-                upperStop = stops[i + 1];
-                break;
-            } 
-        }
+    //     let lowerStop = stops[0];
+    //     let upperStop = stops[stops.length - 1];
+    //     for (let i = 0; i < stops.length - 1; i++){
+    //         if(val >= stops[i].value && val <= stops[i + 1].value) {
+    //             lowerStop = stops[i];
+    //             upperStop = stops[i + 1];
+    //             break;
+    //         } 
+    //     }
         
-        // Calculate percent between these two stops
-        let percent = (val - lowerStop.value) / (upperStop.value - lowerStop.value);
-        console.log(`Slider ${newIndex} is now at ${percent * 100}% between stops ${lowerStop.color} and ${upperStop.color}`); // using the NEW index here to calculate color position
+    //     // Calculate percent BETWEEN THE TWO STOPS
+    //     let percent = (val - lowerStop.value) / (upperStop.value - lowerStop.value);
+    //     console.log(`Slider ${newIndex} is now at ${percent * 100}% between stops ${lowerStop.color} and ${upperStop.color}`); // using the NEW index here to calculate color position
 
-        // Interpolate RGB channels
-        let resultRed   = Math.round(lowerStop.color[0] + percent * (upperStop.color[0] - lowerStop.color[0]));
-        let resultGreen = Math.round(lowerStop.color[1] + percent * (upperStop.color[1] - lowerStop.color[1]));
-        let resultBlue  = Math.round(lowerStop.color[2] + percent * (upperStop.color[2] - lowerStop.color[2]));
+    //     // Interpolate RGB channels BETWEEN STOPS
+    //     let resultRed   = Math.round(lowerStop.color[0] + percent * (upperStop.color[0] - lowerStop.color[0]));
+    //     let resultGreen = Math.round(lowerStop.color[1] + percent * (upperStop.color[1] - lowerStop.color[1]));
+    //     let resultBlue  = Math.round(lowerStop.color[2] + percent * (upperStop.color[2] - lowerStop.color[2]));
 
-        popover.textContent = `rgb(${resultRed}, ${resultGreen}, ${resultBlue})`;
-    }
+    //     popover.textContent = `rgb(${resultRed}, ${resultGreen}, ${resultBlue})`;
+    // }
 
     
     // function for formatting labels (with color?)
@@ -792,18 +835,16 @@ async function populateDialogForField(ramp) {
         const max = stats.max;
         
         const gradientParts = histogramElement.colorStops.map((stop, index) => {
-            // getting the color stop's percentage along based on its value
-            const percent = ((stop.value - min) / (max - min)) * 100;
             
-            // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`);
+            const percent = ((stop.value - min) / (max - min)) * 100; // getting the color stop's percentage along based on its value
+            
+            // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`); // log for debug
 
-            // updating the position of the corresponding vertical bar
-            const bar = document.getElementById(`bar${index}`); 
+            const bar = document.getElementById(`bar${index}`); // updating the position of the corresponding vertical bar 
             bar.style.left = `${Math.min(percent, 99.5)}%`;
-            console.log(`Color stops are currently ${stop.color} at value ${stop.value}`)
+            // console.log(`Color stops are currently ${stop.color} at value ${stop.value}`) // log for debug
            
-            // finally, returning the color at that stop to actually create the swatch
-            return `rgb(${stop.color.join(",")}) ${percent}%`;
+            return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
         });
         
 
@@ -838,8 +879,6 @@ async function populateDialogForField(ramp) {
     histogramElement.colorBlendingEnabled = true;
     // console.log("Histogram created", histogramResult); // log for debug
 
-
-
     /* 
     LOGIC FOR UDPATING THE HISTOGRAM BASED ON THE USER-SPECIFIED MODE (CONTINUOUS/DISCRETE)
     */    
@@ -848,7 +887,11 @@ async function populateDialogForField(ramp) {
        // Remove any existing listeners to avoid duplicates
         sliderElement.removeEventListener("arcgisChange", sliderHandler);
         sliderElement.removeEventListener("arcgisInput", sliderHandler);
+        sliderElement.removeEventListener("arcgisActiveValueChange", buttonHandler);
+        
+        sliderElement.addEventListener("arcgisActiveValueChange", buttonHandler);
 
+        // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
         if (value === "discrete") {
             sliderElement.addEventListener("arcgisChange", sliderHandler);
         } else {
@@ -856,11 +899,10 @@ async function populateDialogForField(ramp) {
         }
     }
 
-
     function sliderHandler() {
-
-        console.log(`Slider elemnent active value ${sliderElement.activeValue}`)
-
+        // graying out the buttons for color ramp visiblity
+        // buttons.forEach(button => button.disabled = true);
+        
         // FIRST, DETERMINING THE SLIDER CHANGES
         const sliderChanges = determineSliderChanges(sliderValues, sliderElement.values);
         const oldIndex = sliderChanges[0];
@@ -868,11 +910,11 @@ async function populateDialogForField(ramp) {
         const newIndex = sliderChanges[2];
         const newValue = sliderChanges[3];
         // const changedSliderValue = sliderElement.values[changedSliderIndex]; // this is WROONG, ITS just grabbing the 
-
+        
         // UPDATING THE POPOVER TEXT
-        console.log(`Slider ${oldIndex} changed from ${oldValue} to value ${newValue}, now at position ${newIndex}`);
-        updatePopoverText(newIndex, newValue);
-
+        // console.log(`Slider ${oldIndex} changed from ${oldValue} to value ${newValue}, now at position ${newIndex}`); // log for debug
+        // updatePopoverText(newIndex, newValue);
+        
         const newStops = histogramElement.colorStops // looping over the histogram
         .map((colorStop, i) => ({
             ...colorStop,
@@ -890,8 +932,11 @@ async function populateDialogForField(ramp) {
         // here we update the color swatches
         updateColorSwatchFromStops(histogramElement.colorStops);
         
+        // then we update the button locations
+        updateButtonLocations();
+        
     }
-
+    
   
     // grabbing the switch from the DOM
     const updateSwitch = document.getElementById("update-switch");

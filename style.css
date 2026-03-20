@@ -53,8 +53,12 @@ calcite-rating {
 
 #color-swatch calcite-button {
   position:absolute;
+  /* without the next 3 lines, the buttons wont be center-aligned with the ACTUAL value on the slider */
   top:50%;
-  transform: translateY(-50%);
+  left: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  --calcite-button-border-color: black;
+  transition: 0.2s ease;
 }
 
 /* vertical lines for color ramp breaks */
