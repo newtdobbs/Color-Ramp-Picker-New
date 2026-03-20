@@ -423,3 +423,74 @@ async function calculateFieldStats(layer, field) {
     //     data = data.concat(res.features);
     // }
     // return data;
+
+        // addding a popover
+        // sliderElement.popoverPlacement = "start";
+        // const popover = document.createElement('div');
+        // popover.slot = "popover";
+        // popover.textContent = ""; // defaulting to an empty popuover, will be updated with slider drag
+        // sliderElement.poopoverLabel = "Color Slider RGB Value";
+        // sliderElement.appendChild(popover);
+    
+    
+        // think i dont need this popver text until I change it to just the color ramp percentage
+        // function updatePopoverText(newIndex, val){
+            
+        //     let rampMin =  stats.min; // the min value of the color ramp
+        //     let rampMax = stats.max; // the max value of the color ramp 
+        //     // console.log(`Slider stretches from ${rampMin} to ${rampMax}`); // log for debug
+    
+        //     // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
+            
+        //     // finding the stop below the color value
+        //     let stops = histogramElement.colorStops;
+            
+        //     let lowerStop = stops[0];
+        //     let upperStop = stops[stops.length - 1];
+        //     for (let i = 0; i < stops.length - 1; i++){
+        //         if(val >= stops[i].value && val <= stops[i + 1].value) {
+        //             lowerStop = stops[i];
+        //             upperStop = stops[i + 1];
+        //             break;
+        //         } 
+        //     }
+            
+        //     // Calculate percent BETWEEN THE TWO STOPS
+        //     let percent = (val - lowerStop.value) / (upperStop.value - lowerStop.value);
+        //     console.log(`Slider ${newIndex} is now at ${percent * 100}% between stops ${lowerStop.color} and ${upperStop.color}`); // using the NEW index here to calculate color position
+    
+        //     // Interpolate RGB channels BETWEEN STOPS
+        //     let resultRed   = Math.round(lowerStop.color[0] + percent * (upperStop.color[0] - lowerStop.color[0]));
+        //     let resultGreen = Math.round(lowerStop.color[1] + percent * (upperStop.color[1] - lowerStop.color[1]));
+        //     let resultBlue  = Math.round(lowerStop.color[2] + percent * (upperStop.color[2] - lowerStop.color[2]));
+    
+        //     popover.textContent = `rgb(${resultRed}, ${resultGreen}, ${resultBlue})`;
+        // }
+    
+        
+        // function for formatting labels (with color?)
+        // sliderElement.labelFormatter = (value, type, defaultFormatter) => {
+        //     if (type === "min") return `start: ${value}`;
+        //     if (type === "max") return `end: ${value}`;
+        //     return `val: ${value}<br>rgb(29,10,2947)`;
+        // };
+
+
+        
+
+// this function will calculate the slider number for intermediate stops (stops 2 and 4)
+function calculateIntermediateStop(kurtosisValue, kurtosisCap, sd){
+
+    // for kurtosis of 0 (normal distribution), we'll default to the halfway point between mean and the standard deviation
+    if (kurtosisValue === 0){
+        return sd / 2
+    } else {
+
+        // we'll clamp our kurtosis between -1.9 and 1.9
+        kurtosisValue = clamp(kurtosisValue, -1.9, 1.9)
+        
+        // formula = actual kurtosis / kurtosis cap * standard deviation
+        return (kurtosisValue / kurtosisCap) * sd
+    }
+
+}

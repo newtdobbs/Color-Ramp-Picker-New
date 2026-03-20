@@ -16,94 +16,37 @@ import "@arcgis/common-components/components/arcgis-slider";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
-import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
+import * as hf from 'helperFunctions.js';
 
 /* 
-LOGIC FOR ROUNDING A NUMBER TO 2 DECIMAL PLACES
-because apparently its impossible in javascript
+CONSTANTS
 */
-var DecimalPrecision2 = (function() {
-    if (Number.EPSILON === undefined) {
-        Number.EPSILON = Math.pow(2, -52);
-    }
-    if (Math.sign === undefined) {
-        Math.sign = function(x) {
-            return ((x > 0) - (x < 0)) || +x;
-        };
-    }
-    return {
-        // Decimal round (half away from zero)
-        round: function(num, decimalPlaces) {
-            var p = Math.pow(10, decimalPlaces || 0);
-            var n = (num * p) * (1 + Number.EPSILON);
-            return Math.round(n) / p;
-        },
-        // Decimal ceil
-        ceil: function(num, decimalPlaces) {
-            var p = Math.pow(10, decimalPlaces || 0);
-            var n = (num * p) * (1 - Math.sign(num) * Number.EPSILON);
-            return Math.ceil(n) / p;
-        },
-        // Decimal floor
-        floor: function(num, decimalPlaces) {
-            var p = Math.pow(10, decimalPlaces || 0);
-            var n = (num * p) * (1 + Math.sign(num) * Number.EPSILON);
-            return Math.floor(n) / p;
-        },
-        // Decimal trunc
-        trunc: function(num, decimalPlaces) {
-            return (num < 0 ? this.ceil : this.floor)(num, decimalPlaces);
-        },
-        // Format using fixed-point notation
-        toFixed: function(num, decimalPlaces) {
-            return this.round(num, decimalPlaces).toFixed(decimalPlaces);
-        }
-    };
-})();
+const default_center = [-94.66, 39.04]; // Kansas City as map view as its ~roughly~ central in US
+const default_scale = 35000000 // roughly the lower 48
 
-//  helper function for clamping values
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
-
-// this function will calculate the slider number for intermediate stops (stops 2 and 4)
-function calculateIntermediateStop(kurtosisValue, kurtosisCap, sd){
-
-    // for kurtosis of 0 (normal distribution), we'll default to the halfway point between mean and the standard deviation
-    if (kurtosisValue === 0){
-        return sd / 2
-    } else {
-
-        // we'll clamp our kurtosis between -1.9 and 1.9
-        kurtosisValue = clamp(kurtosisValue, -1.9, 1.9)
-        
-        // formula = actual kurtosis / kurtosis cap * standard deviation
-        return (kurtosisValue / kurtosisCap) * sd
-    }
-
-}
-
-// Specifying the ideal field types and field value types, leaving all options in for un-ommenting
+// ideal field types, leaving all options in for un-ommenting
 const goodFieldTypes = [
-  "small-integer",
-  "integer",
-  "single",
-  "double",
-  "long",
-  // "string",
-  // "date",
-  // "oid",
-  // "geometry",
-  // "blob",
-  // "raster",
-  // "guid",
-  // "global-id",
-  // "xml",
-  "big-integer",
-  // "date-only",
-  // "time-only",
-  // "timestamp-offset"
+    "small-integer",
+    "integer",
+    "single",
+    "double",
+    "long",
+    // "string",
+    // "date",
+    // "oid",
+    // "geometry",
+    // "blob",
+    // "raster",
+    // "guid",
+    // "global-id",
+    // "xml",
+    "big-integer",
+    // "date-only",
+    // "time-only",
+    // "timestamp-offset"
 ];
-
+// ideal field value types, leaving all options in for un-ommenting
 const goodFieldValueTypes = [
   // "binary",
   // "coordinate",
@@ -123,30 +66,85 @@ const goodFieldValueTypes = [
   // "unique-identifier"
 ];
 
-const mainMap = document.getElementById("main-map")
-// once the page loads, creat an ampty map view
-let mapView = null;
+/* 
+GLOBAL APP STATE
+This should hold info about the map, the chosen feature layer, the selected field, the histogram, etc
+*/
+const appState = {
+    activeWidget: "layers", // initializing active widget to layers so that its open on page load
+    map: null, // the map within the main map div
+    view: null, // the view associated with the map
+    inputItemID: null, // the item ID parsed from the user's input
+    serviceInfo: null, // the service information gathered from the item ID 
+    layer: null, // the selected layer from the dropdown menu
+    field: null, // the selected field from the layer
+    stats: null, // the statistics for the data distibution of the selected field
+    sliderValues: null, // the values currently stored in the slider element
+    colorStops: null, // the color stops (color and value) currently stored in the slider elemnt
+    buttons: null, // the buttons for adding stops
+    defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
+    fieldsList: null, // the full fields list for the service
+    renderer: null
+}
 
-// we'll focus on 1 layer at a time
-let mapFeatureLayer = null;
+/* 
+DOM ELEMENTS
+*/
+const mapContainer = document.getElementById("main-map")
+const panelEls = document.querySelectorAll("calcite-panel"); // this grabs all panels from the actionbar(layers, basemap, legend)
+const layersPanel = document.getElementById("layers-panel"); // the panel for the service layers 
+const basemapGallery = document.querySelector("arcgis-basemap-gallery"); // the basemap gallery to bind it to the map view
+const inputBox = document.getElementById("input"); // the dialog box for users to type their input item ID
+const layerSelector = document.getElementById("layer-selector") // the dropdown for users to select a sublayer of the AGOL service
+const fieldsLabel = document.getElementById("fields-label");
+const generateButton = document.getElementById("generate-btn"); // the button that says 'Generate Histogram'
+const bottomDialog = document.getElementById("bottom-dialog"); // the bottom dialog, which is hidden by default
+const desc = document.getElementById("dialog-description");
 
-// setting Kansas City as default center as its ~roughly~ central in US
-const default_center = [-94.66, 39.04];
+
+
+// // once the page loads, creat an ampty map view
+// let mapView = null;
+
+// // we'll focus on 1 layer at a time
+// let mapFeatureLayer = null;
+
+ const handleActionBarClick = ({ target }) => {
+
+    console.log("active widget is currently:", appState.activeWidget)
+    if (target.tagName !== "CALCITE-ACTION") {
+        return;
+    }
+
+    if (activeWidget) {
+        document.querySelector(`[data-action-id=${appState.activeWidget}]`).active = false;
+        document.querySelector(`[data-panel-id=${appState.activeWidget}]`).closed = true;
+    }
+
+    const nextWidget = target.dataset.actionId;
+    if (nextWidget !== activeWidget) {
+
+
+        document.querySelector(`[data-action-id=${appState.nextWidget}]`).active = true;
+        document.querySelector(`[data-panel-id=${appState.nextWidget}]`).closed = false;
+        appState.activeWidget = nextWidget;
+        document.querySelector(`[data-panel-id=${appState.nextWidget}]`).setFocus();
+    } else {
+        appState.activeWidget = null;
+    }
+};
+// Panel interaction
+for (let i = 0; i < panelEls.length; i++) {
+    panelEls[i].addEventListener("calcitePanelClose", () => {
+    document.querySelector(`[data-action-id=${appState.activeWidget}]`).active = false;
+    document.querySelector(`[data-action-id=${appState.activeWidget}]`).setFocus();
+    appState.activeWidget = null;
+    });
+}
+document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
 
 
 async function createBasemapOnlyView() {
-
-    // create a basemap-only view for a given container
-//   const base = new Basemap({
-//     baseLayers: [
-//       new VectorTileLayer({
-//         portalItem: { id: "291da5eab3a0412593b66d384379f89f" },
-//         title: "Light Gray Canvas Base",
-//         opacity: 1,
-//         visible: true
-//       })
-//     ]
-//   });
 
   const map = new Map({
     basemap: 'gray-vector',
@@ -154,25 +152,26 @@ async function createBasemapOnlyView() {
   });
 
   const view = new MapView({
-    container: mainMap,
+    container: mapContainer, // the dom element to hold our map
     map: map,
     ui: { components: [] }
   });
 
-  await view.when();
-  view.goTo({ scale: 35000000, center: default_center });
+  view.goTo({ scale: default_scale, center: default_center }); // zooming to the lower 48 centered 
 
-  const basemapGallery = document.querySelector("arcgis-basemap-gallery");
   if (basemapGallery) {
     basemapGallery.view = view; // bind the MapView directly
   }
 
   return view;
 }
+
+
+
 // when the page loads, we'll create a basemap-only view
 (async () => {
   try {
-    mapView = await createBasemapOnlyView();
+    appState.view = await createBasemapOnlyView(); // assigning the returned view to the global state
   } catch (e) {
     console.warn("Failed to create basemap-only views on startup:", e);
   }
@@ -180,100 +179,47 @@ async function createBasemapOnlyView() {
 
 
 
-// initializing active widget to basemaps, as its open on page load
-let activeWidget = "layers";
-
- const handleActionBarClick = ({ target }) => {
-
-    console.log("active widget is currently:", activeWidget)
-    if (target.tagName !== "CALCITE-ACTION") {
-        return;
-    }
-
-    if (activeWidget) {
-        document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
-        document.querySelector(`[data-panel-id=${activeWidget}]`).closed = true;
-    }
-
-    const nextWidget = target.dataset.actionId;
-    if (nextWidget !== activeWidget) {
-
-
-        document.querySelector(`[data-action-id=${nextWidget}]`).active = true;
-        document.querySelector(`[data-panel-id=${nextWidget}]`).closed = false;
-        activeWidget = nextWidget;
-        document.querySelector(`[data-panel-id=${nextWidget}]`).setFocus();
-    } else {
-        activeWidget = null;
-    }
-};
-// Panel interaction
-const panelEls = document.querySelectorAll("calcite-panel");
-for (let i = 0; i < panelEls.length; i++) {
-    panelEls[i].addEventListener("calcitePanelClose", () => {
-    document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
-    document.querySelector(`[data-action-id=${activeWidget}]`).setFocus();
-    activeWidget = null;
-    });
-}
-
-document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
-
-let actionBarExpanded = false;
-
-// document.addEventListener("calciteActionBarToggle", event => {
-//     actionBarExpanded = !actionBarExpanded;
-//     let mapElCopyrightText = actionBarExpanded ? "125px" : "45px";
-//     mapEl.style.setProperty("--arcgis-layout-overlay-space-left", `${mapElCopyrightText}`);
-// });
-
 /* 
 LOGIC FOR INPUT DIALOG
 this will fire every time a new agol id is input
 We want to populate the dropdown with sublayers, and create a map
 */
-let selectedID = null;
-let serviceTitle = "";
-let serviceInfo = null;
-let selectedLayer = null;    
-if (input) {
+inputBox.addEventListener("keydown", async function (event) {
+    if (event.key === "Enter") { 
+        event.preventDefault(); // we want to avoid whatever normally happens with the 'Enter' key
 
-    input.addEventListener("keydown", async function (event) {
-        if (event.key === "Enter") {
-        event.preventDefault();
-
-        // hardcoding a default value --REMOVE THIS FOR DEPLOYMENT
-        if (input.value === ""){
-            selectedID = "c9faa265b82848498bc0a8390c0afa65" // MINC
+        // hardcoding a default value --REMOVE THE IF BLOCK FOR DEPLOYMENT
+        if (inputBox.value === ""){
+            appState.inputItemID = appState.defaultItemID // MINC
         } else {
-            const raw = input.value || "";
+            const raw = inputBox.value || "";
             const itemIDs = raw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
             const uniqueItemIDs = Array.from(new Set(itemIDs));
-            selectedID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
+            appState.inputItemID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
         }
 
         // console.log("input AGOL id is", selectedID); // log for debug
+        appState.serviceInfo = await getServiceLayers(appState.inputItemID); // check the layers present in the service
 
-        // check the layers present in the service
-        serviceInfo = await getServiceLayers(selectedID);
+        // if valid information was attained from the service, we'll update the panel heading and create sublayer dropdown
+        if (appState.serviceInfo){
+            layersPanel.heading = `Layer: ${appState.serviceInfo}`;
+            
+            createDropdownForService() // create a dropdown to list the sublayers
 
-        if (serviceInfo){
-            document.getElementById("layers-panel").heading = `Layer: ${serviceInfo.title}`;
+        // if no valid info was attained form the service we'll warn the user
+        } else {
+            hf.warnUser(`No valid information attained for the service with the input item ID: ${appState.inputItemID}`);
         }
 
-        // create a dropdown to list the sublayers
-        createDropdownForService(serviceInfo.layers)
+        inputBox.value = ""; // clearing the input dialog box after everything is done
 
-        input.value = "";
-
-        if (fieldsList) {
-            fieldsList.innerHTML = "";
+        // if a fields list pre-existed, we'll clear it 
+        if (appState.fieldsList) {
+            document.getElementById("fields-list").innerHTML = "";
         }
-        }
-    });
-} else {
-  console.warn("input-dialog element not found in DOM.");
-}
+    }
+});
 
 /* 
 LOGIC FOR TRAVERSING A LAYER TO GET SUBLAYERS
@@ -287,9 +233,7 @@ async function getServiceLayers(itemId) {
             const portalItem = new PortalItem({ id: itemId });
             await portalItem.load();
 
-            console.log('portal item:', portalItem.title)
-            const portalItemTitle = portalItem.title
-
+            console.log('portal item title:', portalItem.title)
 
             // Request the service metadata
             const serviceUrl = portalItem.url;
@@ -299,19 +243,22 @@ async function getServiceLayers(itemId) {
 
             const layersInfo = response.data.layers || [];
 
-            console.log("layers info: ", layersInfo);
+            // console.log("layers info: ", layersInfo); // log for debug
 
             return {
                 title: portalItem.title,
                 layers: layersInfo
             };
+
         } catch (error) {
             // Code to handle the error
             console.warn(`An error occurred while fetching item ${itemId}, ${error.message}`);
+            hf.warnUser(`An error occurred while fetching item ${itemId}, ${error.message}`);
             return null;
         }
     } else {
         console.warn(`ID ${itemId} failed regex format check`);
+        hf.warnUser(`ID ${itemId} failed regex format check`);
         return null;
     }
 }
@@ -321,22 +268,16 @@ async function getServiceLayers(itemId) {
 LOGIC FOR LAYER SELECTOR
 The dropdown list should be populated AFTER the item ID is input
 */
-function createDropdownForService(serviceLayersInfo) {
-    const layerSelector = document.getElementById("layer-selector")
+function createDropdownForService() {
     layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
     layerSelector.placeholder = 'Select a Layer';
 
-
-    // selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
-
-
-    if (serviceLayersInfo.length === 1){
-        layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`;
-        selectedLayer = serviceLayersInfo[0]; // if needed we'll use the first entry in service layers info
-
+    if (appState.serviceInfo.layers.length === 1){
+        appState.layer = appState.serviceInfo.layers[0]; // if needed we'll use the first entry in service layers info
+        layerSelector.placeholder = `Selected Layer: ${layer.name}`;
     }
 
-    serviceLayersInfo.forEach((serviceLayer) => {
+    appState.serviceInfo.layers.forEach((serviceLayer) => {
         const layerOption = document.createElement("calcite-autocomplete-item");
         layerOption.label = serviceLayer.name || serviceLayer.id; // use the layer id as fallback
         layerOption.heading = serviceLayer.name || serviceLayer.id; // use the layer id as fallback
@@ -344,52 +285,50 @@ function createDropdownForService(serviceLayersInfo) {
 
         layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
         layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
-            selectedLayer = serviceLayer; // setting the curent layer to the selected layer
-            console.log('selection change to:', selectedLayer.name, 'layer info:', selectedLayer)
-            layerSelector.placeholder = `Selected Layer: ${selectedLayer.name}`; 
+            appState.layer = serviceLayer; // setting the curent layer to the selected layer
+            console.log('selection change to:', appState.layer.name, 'layer info:', appState.layer)
+            layerSelector.placeholder = `Selected Layer: ${appState.layer.name}`; 
 
             // call to createMap if the selection changes
-            await createMap(selectedID, selectedLayer);
+            await createMap();
 
             // re-populating the list of fields, DON'T want to assume that the fields are consistent
             generateFieldsList();
         });
     });
 
-    return selectedLayer
     // at the end here, we'll create the map for the main-map div
-    // createMap(selectedLayer)
+    createMap(appState.layer);
+    
+    return selectedLayer
 
 }
 
 /* 
 LOGIC FOR CREATING A MAP VIEW
 */
-let viewMidpoint;
-async function createMap(itemId, sublayer) {
-    mapView.map.removeAll(); // first removing all layers from the current view
+async function createMap() {
+    appState.view.map.removeAll(); // first removing all layers from the current view
     try {
         const layer = new FeatureLayer({
-            portalItem: { id: itemId },
-            layerId: sublayer.id
+            portalItem: { id: appState.inputItemID },
+            layerId: appState.layer.id
         });
         await layer.load();
-        mapFeatureLayer = layer;
-        console.log('mapfeatureLayer', mapFeatureLayer);
-        mapView.map.add(layer);
-        await mapView.when();
+        // console.log('layer to populate in map', layer); // log for debug
+        appState.view.map.add(layer);
 
         // zooming to the midpoint of the selected layer's visibility
         let layerMinScale;
         if (layer.minScale === 0){
             layerMinScale = 1
         } else {
-            layerMinScale = layer.minScale;
+            layerMinScale = appState.layer.minScale;
         }
-        const midScale = Math.floor((layerMinScale + layer.maxScale) / 2);
+        const midScale = Math.floor((layerMinScale + appState.layer.maxScale) / 2);
   
-        // console.log(`Resetting view for Layer to mid scale of: ${midScale}`);
-        mapView.goTo({ scale: midScale, center: default_center });
+        // console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
+        appState.map.view.goTo({ scale: midScale, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
 
 
     } catch (e) {
@@ -401,21 +340,15 @@ async function createMap(itemId, sublayer) {
 /* 
 LOGIC FOR CREATING THE LIST OF FIELDS
 */
-let selectedField;
-let listItem;
-let fieldsList;
-let fieldValues; // an array to hold the values of the selected field
+
 function generateFieldsList() {
-    const fieldsLabel = document.getElementById("fields-label");
     fieldsLabel.textContent = "Select a Field";
-
+    
     fieldsList = document.createElement("calcite-list");
+    fieldsList.innerHTML = ""; // removing any preexisting fields
     fieldsList.label = "Select a field";
-    fieldsList.selectionMode = "single"; // also fix typo: selectionzMode → selectionMode
+    fieldsList.selectionMode = "single"; 
     fieldsLabel.appendChild(fieldsList);
-
-    // Clear old list items if needed
-    fieldsList.innerHTML = "";
 
     // Can log all the fields here for debug
     // console.log("All fields:");
@@ -423,37 +356,39 @@ function generateFieldsList() {
     //     console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
     // });
 
-
-    mapFeatureLayer.fields.forEach(field => {
+    appState.layer.fields.forEach(field => {
         if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
-        const listItem = document.createElement("calcite-list-item");
-        listItem.label = field.alias;
-        listItem.scale = "s";
-        listItem.value = field.name;
-        listItem.closable = true;
+            const listItem = document.createElement("calcite-list-item");
+            listItem.label = field.alias;
+            listItem.scale = "s";
+            listItem.value = field.name;
+            listItem.closable = true;
 
-        fieldsList.appendChild(listItem);
+            fieldsList.appendChild(listItem);
 
-        listItem.addEventListener("calciteListItemSelect", async () => {
-            selectedField = selectedField === field ? null : field;
+            listItem.addEventListener("calciteListItemSelect", async () => {
+                appState.field = appState.field === field ? null : field; // this will allow users to deselect a field without having to remove it from the list
 
-            console.log("Selected field is:", selectedField.alias, selectedField)
-            // removing any previous warning for the user
-            if(document.querySelector("calcite-alert")){
-                document.querySelector("calcite-alert").remove();
-            }
-        });
+                console.log(`Selected field '${appState.field.alias}' information: ${appState.field}`)
+                // seleecting a field will remove any previous warnings
+                if(document.querySelector("calcite-alert")){
+                    document.querySelector("calcite-alert").remove();
+                }
+            });
 
-        listItem.addEventListener("calciteListItemClose", async () => {
-            console.log('removing field: ', field.alias);
-            if (selectedField.alias === field.alias){
-                selectedField = null;
-                // warnUser('Select a field from the fields list')
-            }
-            listItem.remove();
-        });
+            listItem.addEventListener("calciteListItemClose", async () => {
+                hf.warnUser('Removing field: ', field.alias);
+                // console.log('removing field: ', field.alias); // log for debug
+                if (appState.field.alias === field.alias){
+                    appState.field = null; // if the user removes the currently selected field, we'll clear the state variable
+                    // warnUser('Select a field from the fields list')
+                }
+                listItem.remove(); // removing the list item from the dom
+            });
         }
     });
+
+    appState.fieldsList = fieldsList; // adding the fields list to the global state
 }
 
 
@@ -461,75 +396,63 @@ function generateFieldsList() {
 LOGIC FOR THE DIALOG BOX
 This should only appear after the 'generate histogram' button was clicked
 */
-const exButtonEl = document.getElementById("example-button");
-const exDialogEl = document.getElementById("example-dialog");
 
-exButtonEl?.addEventListener("click", function() {
-    exDialogEl.open = true;
-});
 // functionality to handle the generate button
-const generateButton = document.getElementById("generate-btn");
-const bottomDialog = document.getElementById("bottom-dialog");
-let applyButton;
-generateButton.addEventListener("click", async () => {
-   
-    // error handling if no field is selected
-    if(!selectedField){
-        warnUser('Select a field from the fields list')
-        return
-    }
-    
-    // otherwise, closing any pre-existing dialog so we can re-generate its contents
-    if (bottomDialog.open){
-        // bottomDialog.textContent = "";    
-        bottomDialog.open = false;
-    }
-        
-    
-    // resertting the dialog
-    // bottomDialog.textContent = "";  
-    
-    //if its non-numeric warn user
-    if(!goodFieldTypes.includes(selectedField.type)){
-        warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
-        selectedField = null;
-        return
-    }
-    // // make sure its not just a Geoid, uniqueid, make sure its a DATA field
-    if(!goodFieldValueTypes.includes(selectedField.valueType)){
-        warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
-        selectedField = null;
-        return
-    }   
 
-    // setting the heading and opening the dialog but with a loader
-    
-    bottomDialog.open = true;
-    bottomDialog.componentOnReady();
-    bottomDialog.loading = true;
-    
-    try {
+generateButton.addEventListener("click", async () => {
+
+    // error handling if no field is selected
+    if(!appState.field){
+        hf.warnUser('Select a field from the fields list')
+        return
+    } else {
         
-        // updating the dialog header
-        bottomDialog.heading = `Color Ramp Information for ${selectedField.name} (${selectedField.alias})`
-        bottomDialog.description = `Selected Layer: ${mapFeatureLayer.title}`
+        // otherwise, closing any pre-existing dialog so we can re-generate its contents
+        if (bottomDialog.open){
+            // bottomDialog.textContent = "";    
+            bottomDialog.open = false;
+        }
+                    
+        // resertting the dialog
+        // bottomDialog.textContent = "";  
         
-        // building the histogram for the selected field's data
+        //if its non-numeric warn user
+        if(!goodFieldTypes.includes(appState.field.type)){
+            hf.warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
+            appState.field = null;
+            return
+        }
+        // // make sure its not just a Geoid, uniqueid, make sure its a DATA field
+        if(!goodFieldValueTypes.includes(appState.field.valueType)){
+            hf.warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
+            appState.field = null;
+            return
+        }   
+
+        // setting the heading and opening the dialog but with a loader
         
-        // here we'll assemble a description of the selected field's data distribution
-        const desc = document.getElementById("dialog-description");
-        desc.textContent = await populateDialogForField()
-        desc.slot = "content-bottom";
+        bottomDialog.open = true;
+        bottomDialog.componentOnReady();
+        bottomDialog.loading = true;
         
-        bottomDialog.appendChild(desc);
-        bottomDialog.loading = false;
-        
-    } catch(err){
-        console.log("Error generating histogram:", err)
-        bottomDialog.heading = `Error Generating Color Ramp Information for ${selectedField.alias}`
-    }
-    bottomDialog.open = true;
-        
+        try {
+            // updating the dialog header
+            bottomDialog.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
+            bottomDialog.description = `Selected Layer: ${appState.layer.title}`
+            
+            // here we'll populate the dialog using the selected field's data distribution
+            desc.textContent = await populateDialogForField()
+            desc.slot = "content-bottom";
+            
+            bottomDialog.appendChild(desc);
+            bottomDialog.loading = false;
+            
+        } catch(err){
+            console.log("Error generating histogram:", err)
+            bottomDialog.heading = `Error Generating Color Ramp Information for ${appState.field.alias}`
+        }
+        bottomDialog.open = true;
+    }   
 });
     
 
@@ -722,8 +645,8 @@ async function populateDialogForField(ramp) {
     for(let i = 1; i < sliderElement.values.length; i++){
         
         // converting it to the percentge of the color ramp's width for css placement
-        const midpoint = buttonMidpoint(i);
-        const midpointPercent = ((midpoint - stats.min) / (stats.max - stats.min)) * 100;
+        const midpoint = buttonMidpoint(i); // this gets the midpoint value between the upper and lower sotps
+        const midpointPercent = (midpoint - stats.min) / (stats.max - stats.min); // and this converts it to a locaiton along the full swatch for placement
         console.log(`adding button ${i} at midpoint ${midpointPercent}%`);
         
         const button = document.createElement('calcite-button'); // creating the calcite button
@@ -733,7 +656,7 @@ async function populateDialogForField(ramp) {
         button.round = true;
         button.scale = "s";
         button.appearance = "outline";
-        button.style.left = `${midpointPercent}%` 
+        button.style.left = `${midpointPercent * 100}%` 
 
 
         // event listener for hover
@@ -752,6 +675,24 @@ async function populateDialogForField(ramp) {
         button.addEventListener("click", () => {
 
             console.log(`Adding stop for button ${i} at value ${buttonMidpoint(i)}`)
+
+            let stops = histogramElement.colorStops;
+            
+            let lowerStop = stops[i - 1];
+            let upperStop = stops[i];
+
+
+            // Interpolate RGB channels BETWEEN STOPS
+            let resultRed   = Math.round(lowerStop.color[0] + midpointPercent * (upperStop.color[0] - lowerStop.color[0]));
+            let resultGreen = Math.round(lowerStop.color[1] + midpointPercent * (upperStop.color[1] - lowerStop.color[1]));
+            let resultBlue  = Math.round(lowerStop.color[2] + midpointPercent * (upperStop.color[2] - lowerStop.color[2]));
+
+
+            console.log(`Adding a slider stop at value ${midpoint} with color (${resultRed},${resultGreen},${resultBlue})`)
+
+            // we need to create a new slider with two values: the value along the range, and the color
+            histogramElement.colorStops.push({ color: [resultRed, resultGreen, resultBlue], value: midpoint });
+            histogramElement.colorStops.sort((a, b) => a.value - b.value); // resorting the histogram stops
             
             // then we should just be able to call updateSliderHandler, which will update histogram, renderer, color swatch, and new button locations
             // sliderHandler()
@@ -771,58 +712,6 @@ async function populateDialogForField(ramp) {
             buttons[i - 1].style.left = `${midpointPercent}%`;
         }
     }
-
-
-    // addding a popover
-    // sliderElement.popoverPlacement = "start";
-    // const popover = document.createElement('div');
-    // popover.slot = "popover";
-    // popover.textContent = ""; // defaulting to an empty popuover, will be updated with slider drag
-    // sliderElement.poopoverLabel = "Color Slider RGB Value";
-    // sliderElement.appendChild(popover);
-
-
-    // think i dont need this popver text until I change it to just the color ramp percentage
-    // function updatePopoverText(newIndex, val){
-        
-    //     let rampMin =  stats.min; // the min value of the color ramp
-    //     let rampMax = stats.max; // the max value of the color ramp 
-    //     // console.log(`Slider stretches from ${rampMin} to ${rampMax}`); // log for debug
-
-    //     // first we'll need to calculate the color within our color ramp at val (changedSliderVal)
-        
-    //     // finding the stop below the color value
-    //     let stops = histogramElement.colorStops;
-        
-    //     let lowerStop = stops[0];
-    //     let upperStop = stops[stops.length - 1];
-    //     for (let i = 0; i < stops.length - 1; i++){
-    //         if(val >= stops[i].value && val <= stops[i + 1].value) {
-    //             lowerStop = stops[i];
-    //             upperStop = stops[i + 1];
-    //             break;
-    //         } 
-    //     }
-        
-    //     // Calculate percent BETWEEN THE TWO STOPS
-    //     let percent = (val - lowerStop.value) / (upperStop.value - lowerStop.value);
-    //     console.log(`Slider ${newIndex} is now at ${percent * 100}% between stops ${lowerStop.color} and ${upperStop.color}`); // using the NEW index here to calculate color position
-
-    //     // Interpolate RGB channels BETWEEN STOPS
-    //     let resultRed   = Math.round(lowerStop.color[0] + percent * (upperStop.color[0] - lowerStop.color[0]));
-    //     let resultGreen = Math.round(lowerStop.color[1] + percent * (upperStop.color[1] - lowerStop.color[1]));
-    //     let resultBlue  = Math.round(lowerStop.color[2] + percent * (upperStop.color[2] - lowerStop.color[2]));
-
-    //     popover.textContent = `rgb(${resultRed}, ${resultGreen}, ${resultBlue})`;
-    // }
-
-    
-    // function for formatting labels (with color?)
-    // sliderElement.labelFormatter = (value, type, defaultFormatter) => {
-    //     if (type === "min") return `start: ${value}`;
-    //     if (type === "max") return `end: ${value}`;
-    //     return `val: ${value}<br>rgb(29,10,2947)`;
-    // };
 
     // console.log("color slider created", sliderElement); // log for debug
 
@@ -858,7 +747,8 @@ async function populateDialogForField(ramp) {
     const histogramResult = await histogram({
         layer: mapFeatureLayer,
         field: selectedField.name,
-        numBins: Math.min(100, stats.count)    });
+        numBins: Math.min(100, stats.count)
+    });
     
     const histogramElement = document.getElementById("histogram");
     histogramElement.min = histogramResult.minValue;
@@ -866,12 +756,13 @@ async function populateDialogForField(ramp) {
     histogramElement.bins = histogramResult.bins;
     
     // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
+    // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
     histogramElement.colorStops = [
-        { "color": [129, 0, 230], "value": DecimalPrecision2.round(stats.min, 2)}, // first stop, min value at purple
-        { "color": [179, 96, 209], "value": DecimalPrecision2.round(stats.avg - stats.stddev, 2) }, // stop 2, purpley
-        { "color": [242, 207, 158], "value": DecimalPrecision2.round(stats.avg, 2) }, // middle stop, mean at yellow
-        { "color": [110, 184, 48], "value": DecimalPrecision2.round(stats.avg + stats.stddev, 2) }, // stop 4, greenish
-        { "color": [43, 153, 0], "value": DecimalPrecision2.round(stats.max, 2) } // last stop, max value at green
+        { "color": [129, 0, 230], "value": stats.min}, // first stop, min value at purple
+        { "color": [179, 96, 209], "value": stats.avg - stats.stddev}, // stop 2, purpley
+        { "color": [242, 207, 158], "value": stats.avg}, // middle stop, mean at yellow
+        { "color": [110, 184, 48], "value": stats.avg + stats.stddev}, // stop 4, greenish
+        { "color": [43, 153, 0], "value": stats.max} // last stop, max value at green
     ];
 
     updateColorSwatchFromStops(); // populating the color swatch after creating our histogram
@@ -887,9 +778,9 @@ async function populateDialogForField(ramp) {
        // Remove any existing listeners to avoid duplicates
         sliderElement.removeEventListener("arcgisChange", sliderHandler);
         sliderElement.removeEventListener("arcgisInput", sliderHandler);
-        sliderElement.removeEventListener("arcgisActiveValueChange", buttonHandler);
+        // sliderElement.removeEventListener("arcgisActiveValueChange", buttonHandler);
         
-        sliderElement.addEventListener("arcgisActiveValueChange", buttonHandler);
+        // sliderElement.addEventListener("arcgisActiveValueChange", buttonHandler);
 
         // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
         if (value === "discrete") {
@@ -934,6 +825,11 @@ async function populateDialogForField(ramp) {
         
         // then we update the button locations
         updateButtonLocations();
+
+        // console logs for debug
+        // console.log(`AFTER CHANGES, HISTOGRAM STOPS ARE:}`);
+        // console.table(histogramElement.colorStops);
+        // console.log(`AFTER CHANGES, SLIDER VALUES ARE ${sliderElement.values}`);
         
     }
     
@@ -1002,30 +898,6 @@ async function populateDialogForField(ramp) {
 }
 
 
-
-/* 
-HELPER FUNCTIONS
-*/
-// FUNCTION FOR DIPLAYING WARNING MESSAGE
-function warnUser(message){
-  // clear any existing warnings
-  const existingAlert = document.querySelector("calcite-alert")
-  if(existingAlert) existingAlert.remove();
-
-  // displaying an alert, warning the user to turn on the overlay when taking screensbot 
-  const newAlert = document.createElement("calcite-alert");
-  newAlert.open = true;
-  newAlert.kind = "warning";
-  newAlert.autoDismiss = true;
-  const title = document.createElement("calcite-alert-message");
-  title.textContent = message;
-  title.slot = "title";
-  newAlert.appendChild(title);
-
-  // appending the warning to the DOM
-  document.body.appendChild(newAlert);
-}
-
 // FUNCTION FOR DETECTING SLIDER CHANGE (AGNOSTIC TO NUMBER OF SLIDERS)
 function determineSliderChanges(oldValues, newValues) {
     // lengths must be equal for a valid index-by-index comparison
@@ -1050,25 +922,17 @@ function determineSliderChanges(oldValues, newValues) {
     return [oldSliderIndex, oldSliderValue, newSliderIndex, newSliderValue];
 
 }
-// function determineSliderChanges(arr1, arr2) {
-//   // lengths must be equal for a valid index-by-index comparison
-//   if (arr1.length !== arr2.length) {
-//     console.error("Arrays must have the same length for index-by-index comparison.");
-//     return [];
-//   }
-//   return arr1
-//     .map((value, index) => value !== arr2[index] ? index : null) // where arr1 DOESNT match arr2 it converts to the index, for equivalence we leave null
-//     .filter(index => index !== null)[0]; // filterting out nulls (matches between arr1 and arr2), taking [0] since we only change one slider at a time
-// }
+
+
 
 // FUNCTION FOR QUERYING ALL DATA FROM A FIELD
-async function getData() {
+async function getAllFeatures(featureLayerUrl, selectedField) {
   try {
     console.log("grabbing item from the URL: ", mapFeatureLayer.parsedUrl);
 
     const results = await queryAllFeatures({
-      url: mapFeatureLayer.parsedUrl.path,
-      outFields: [selectedField.name]
+      url: featureLayerUrl,
+      outFields: [selectedField]
     });
 
     // console.log('full query results', results) // log for debug
