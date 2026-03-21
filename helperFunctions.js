@@ -1,5 +1,3 @@
-import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
-
 /* 
 THIS SCRIPT IS RESERVED FOR NON-ARCGIS RELATED HELPER FUNCTIONS THAT WILL PROBABLY BE USED OFTEN
 */
@@ -46,11 +44,13 @@ var DecimalPrecision2 = (function() {
 
 
 //  CLAMPING VALUES BETWEEN A MIN AND MAX RANGE
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
+export function clamp (val, min, max) {
+    return Math.min(Math.max(val, min), max)
+}
 
 
 // FUNCTION FOR DIPLAYING A CALCITE WARNING MESSAGE
-function warnUser(message){
+export function warnUser(message){
   // clear any existing warnings
   const existingAlert = document.querySelector("calcite-alert")
   if(existingAlert) existingAlert.remove(); // clearing any preexisting alerts
