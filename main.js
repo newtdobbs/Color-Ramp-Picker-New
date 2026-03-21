@@ -78,7 +78,8 @@ const appState = {
     view: null, // the view associated with the map
     inputItemID: null, // the item ID parsed from the user's input
     serviceInfo: null, // the service information gathered from the item ID 
-    layer: null, // the selected layer from the dropdown menu
+    layerSelection: null, // the selected layer from the dropdown menu
+    layer: null, // the feature layer created from the dropdown's selected layer
     renderer: null, // the renderer for the selected layer
     field: null, // the selected field from the layer
     stats: null, // the statistics for the data distibution of the selected field
@@ -283,14 +284,14 @@ function createDropdownForService() {
 
         layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
         layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
-            appState.layer = serviceLayer; // setting the curent layer to the selected layer
-            console.log('selection change to:', appState.layer.name, 'layer info:', appState.layer)
-            layerSelector.placeholder = `Selected Layer: ${appState.layer.name}`; 
+            appState.layerSelection = serviceLayer; // setting the curent layer to the selected layer
+            console.log('selection change to:', appState.layerSelection.name, 'layer info:', appState.layerSelection)
+            layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name}`; 
 
             // call to createMap if the selection changes
             await createMap();
 
-            console.log('before we create a fields list, this is the map layer', appState.layer);
+            // console.log('before we create a fields list, this is the map layer', appState.layer);
 
             // re-populating the list of fields, DON'T want to assume that the fields are consistent
             generateFieldsList();
@@ -305,16 +306,17 @@ function createDropdownForService() {
 LOGIC FOR CREATING A MAP VIEW
 */
 async function createMap() {
-    console.log('app state map', appState.map)
+    // console.log('app state map', appState.map)  // log for debug
     appState.map.removeAll(); // first removing all layers from the current view
     try {
         const layer = new FeatureLayer({
             portalItem: { id: appState.inputItemID },
-            layerId: appState.layer.id
+            layerId: appState.layerSelection.id
         });
         await layer.load();
         // console.log('layer to populate in map', layer); // log for debug
         appState.map.add(layer);
+        appState.layer = layer;
 
         // zooming to the midpoint of the selected layer's visibility
         let layerMinScale;
@@ -349,10 +351,10 @@ function generateFieldsList() {
     fieldsLabel.appendChild(fieldsList);
 
     // Can log all the fields here for debug
-    console.log("All fields:");
-    appState.view.fields.forEach(field => {
-        console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
-    });
+    // console.log("All fields:");
+    // appState.layer.fields.forEach(field => {
+    //     console.log(`Field: ${field.name}, type: ${field.type}, valueType: ${field.valueType}`);
+    // });
 
     appState.layer.fields.forEach(field => {
         if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
