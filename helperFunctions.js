@@ -3,7 +3,7 @@ THIS SCRIPT IS RESERVED FOR NON-ARCGIS RELATED HELPER FUNCTIONS THAT WILL PROBAB
 */
 
 // ROUNDING A NUMBER TO 2 DECIMAL PLACES BECAUSE apparently its impossible in javascript
-var DecimalPrecision2 = (function() {
+export const DecimalPrecision2 = (function() {
     if (Number.EPSILON === undefined) {
         Number.EPSILON = Math.pow(2, -52);
     }

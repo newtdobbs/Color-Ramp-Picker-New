@@ -89,7 +89,7 @@ const appState = {
     buttons: [], // the buttons for adding stops
     defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
     fieldsList: null, // the full fields list for the service
-    renderer: null
+    updateSwitch: null // the value (discrete v. continuous) of the updateSwitch
 }
 
 /* 
@@ -440,7 +440,8 @@ generateButton.addEventListener("click", async () => {
             bottomDialog.description = `Selected Layer: ${appState.layer.title}`
             
             // here we'll populate the dialog using the selected field's data distribution
-            desc.textContent = await populateDialogForField()
+            await populateDialogForField()
+            desc.textContent = appState.description; // pulling the dialog description from the state variable
             desc.slot = "content-bottom";
             
             bottomDialog.appendChild(desc);
@@ -459,10 +460,10 @@ LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FR
 */
 async function calculateSkewAndKurtosis() {
     
-    // const t0 = performance.now(); // log for debug
+    const t0 = performance.now(); // log for debug
     const data = await getAllFeatures(); // wait for all features
-    // const t1 = performance.now(); // log for debug
-    // console.log(`Querying ${statsDictionary.count} records took ${Math.floor(t1 - t0)} milliseconds.`); // log for debug
+    const t1 = performance.now(); // log for debug
+    console.log(`Querying ${appState.stats.count} records took ${Math.floor(t1 - t0)} milliseconds.`); // log for debug
     const values = data.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
 
     const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)); // filtering out NaN or non-numeric values
@@ -495,57 +496,6 @@ async function calculateSkewAndKurtosis() {
     // then adding these values to the global app state
     appState.stats.skew = sampleSkew;
     appState.stats.kurtosis = kurtosis;
-}
-
-/* 
-LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
-*/
-function buildDescription() {
-    // console.log("Building a description for the summary statistics:", appState.stats); // log for debug
-
-    const descParts = [];
-
-    descParts.push(
-        `${appState.field.alias} has a value range of ${DecimalPrecision2.round(appState.stats.min, 2).toLocaleString()} to ${DecimalPrecision2.round(appState.stats.max, 2).toLocaleString()}, with a mean of ${DecimalPrecision2.round(appState.stats.avg, 2).toLocaleString()} and a median of ${DecimalPrecision2.round(appState.stats.median, 2).toLocaleString()}. With a skewness of ${DecimalPrecision2.round(appState.stats.skewness, 2).toLocaleString()}, the distribution shows`
-    ); 
-
-    // Skew severity & direction
-    const skewAbs = Math.abs(appState.stats.skewness);
-
-    if (skewAbs > 0.25) {
-        let severity;
-        if (skewAbs > 1) {
-            severity = "substantial";
-        } else if (skewAbs > 0.5) {
-            severity = "moderate";
-        } else {
-            severity = "slight";
-        }
-
-        const direction = appState.stats.skewness > 0 ? "positive (right)" : "negative (left)";
-        descParts.push(`${severity} ${direction} skew.`);
-    } else {
-        descParts.push(" no noticeable skew.");
-
-    }
-
-    // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
-    
-    // // Kurtosis severity
-    const kurtosisAbs = Math.abs(appState.stats.kurtosis);
-    let kurtosisSeverity;
-    if (kurtosisAbs > 1) {
-        kurtosisSeverity = "a leptokurtic (peaked)";
-    } else if (kurtosisAbs < -1) {
-        kurtosisSeverity = "a platykurtic (flat)";
-    } else {
-        kurtosisSeverity = "an approximately normal";
-    }
-    descParts.push(`The data has a kurtosis of ${DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating ${kurtosisSeverity} distribution.`)
-
-    descParts.join(" ");
-    
-    appState.description = descParts; // assigning it to the state variable
 }
 
 /* 
@@ -616,7 +566,7 @@ async function populateDialogForField() {
     sliderElement.min = appState.stats.min;
     sliderElement.max = appState.stats.max;
     // 5 stop slider
-    sliderElement.values = [stats.min, stats.avg - stats.stddev, stats.avg, stats.avg + stats.stddev, stats.max]; // defaulting to min, max, mean, 1sd above and below mean
+    sliderElement.values = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max]; // defaulting to min, max, mean, 1sd above and below mean
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
@@ -640,10 +590,12 @@ async function populateDialogForField() {
     */
     // initializing the buttions within the swatch
     // we're starting at index 1, as there's nothing between the start of the swatch, and stop 0, were adding buttons at the midpoint of the current and previous stops
+    appState.buttons.forEach(btn => btn.remove());
+    appState.buttons = [];
     for(let i = 1; i < appState.sliderValues.length; i++){
         
-        // converting it to the percentge of the color ramp's width for css placement
-        const buttonValue = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1];; // this gets the midpoint value between 
+        // converting the button's value it to the percentge of the color ramp's width for css placement
+        const buttonValue = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1];; // this gets the midpoint value between the surrounding stop's
         const percentAlongSwatch = ((buttonValue - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100; // and this converts it to a locaiton along the full swatch for placement
         console.log(`adding button ${i} at the value ${buttonValue}%`);
         
@@ -683,20 +635,28 @@ async function populateDialogForField() {
                 } 
             }
                         
-            // Interpolate RGB channels BETWEEN STOPS
-            let resultRed   = Math.round(lowerStop.color[0] + midpointPercent * (upperStop.color[0] - lowerStop.color[0]));
-            let resultGreen = Math.round(lowerStop.color[1] + midpointPercent * (upperStop.color[1] - lowerStop.color[1]));
-            let resultBlue  = Math.round(lowerStop.color[2] + midpointPercent * (upperStop.color[2] - lowerStop.color[2]));
-                        
-            //     console.log(`Adding a slider stop at value ${midpoint} with color 
-            console.log(`Adding stop for button ${i} at value ${buttonValue} with the color rgb(${resultRed},${resultGreen},${resultBlue})`)
-            
-            // creating a new color stop using the midpoint between the surrounding stops, and the interpolated color
-            histogramElement.colorStops.push({ color: [resultRed, resultGreen, resultBlue], value: midpoint });
-            histogramElement.colorStops.sort((a, b) => a.value - b.value); // resorting the histogram stops
-            
-            // then we should just be able to call updateSliderHandler, which will update histogram, renderer, color swatch, and new button locations
-            sliderHandler();
+            // Midpoint value between the two stops
+            let midpoint = ((upperStop.value - lowerStop.value) / 2) + lowerStop.value;
+
+            // Fraction between lower and upper stops
+            let fraction = (midpoint - lowerStop.value) / (upperStop.value - lowerStop.value);
+
+            // Interpolate RGB channels
+            let resultRed   = Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0]));
+            let resultGreen = Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1]));
+            let resultBlue  = Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]));
+
+            console.log(`Adding stop at value ${midpoint} with color rgb(${resultRed},${resultGreen},${resultBlue})`);
+
+            // addding the new stop to our histogram element
+            histogramElement.colorStops.push({
+                color: [resultRed, resultGreen, resultBlue],
+                value: midpoint
+            });
+            histogramElement.colorStops.sort((a, b) => a.value - b.value); // and resorting the stops by value
+
+            appState.colorStops = histogramElement.colorStops; // update state
+            sliderHandler(); // update the UI
         });
 
         // adding the button to the swatch div, and to the state variable
@@ -721,44 +681,33 @@ async function populateDialogForField() {
     // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
     // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
     histogramElement.colorStops = [
-        { "color": [129, 0, 230], "value": stats.min}, // first stop, min value at purple
-        { "color": [179, 96, 209], "value": stats.avg - stats.stddev}, // stop 2, purpley
-        { "color": [242, 207, 158], "value": stats.avg}, // middle stop, mean at yellow
-        { "color": [110, 184, 48], "value": stats.avg + stats.stddev}, // stop 4, greenish
-        { "color": [43, 153, 0], "value": stats.max} // last stop, max value at green
+        { "color": [129, 0, 230], "value": appState.stats.min}, // first stop, min value at purple
+        { "color": [179, 96, 209], "value": appState.stats.avg - appState.stats.stddev}, // stop 2, purpley
+        { "color": [242, 207, 158], "value": appState.stats.avg}, // middle stop, mean at yellow
+        { "color": [110, 184, 48], "value": appState.stats.avg + appState.stats.stddev}, // stop 4, greenish
+        { "color": [43, 153, 0], "value": appState.stats.max} // last stop, max value at green
     ];  
     histogramElement.colorBlendingEnabled = true;
+    appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
     // console.log("Histogram created", histogramResult); // log for debug
 
     /* 
     INITIALIZING THE SWATCH
     */
-    updateSwatch(); // all we need to do is call this, it'll pull from the state variables to update the swatch
+    updateSwatch();
 
+    /* 
+    SLIDER HANDLER
+    */
     function sliderHandler() {
-        
-        // const sliderChanges = determineSliderChanges(sliderValues, sliderElement.values);
-        // const oldIndex = sliderChanges[0];
-        // const oldValue = sliderChanges[1];
-        // const newIndex = sliderChanges[2];
-        // const newValue = sliderChanges[3];
-        // console.log(`Slider ${oldIndex} changed from ${oldValue} to value ${newValue}, now at position ${newIndex}`); // log for debug
-        // updatePopoverText(newIndex, newValue);
-        
-        const newStops = appState.colorStops // looping over the histogram
-        .map((colorStop, i) => ({
+        appState.sliderValues = [...sliderElement.values]; // we FIRST store the new slider values in the state
+        // then pull from state sliderValues to update the colorStops in place
+        appState.colorStops = appState.colorStops.map((colorStop, i) => ({
             ...colorStop,
-            value: appState.sliderValues[i] // these are the NEW values currently in the slider
-        }))
-        .sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
+            value: appState.sliderValues[i] // these are the NEW values currently in the state variable
+        })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
         
-        appState.colorStops = newStops; // assigning the new slider stops to the state variable 
-        histogramElement.colorStops = newStops; // and assigning the histogram's stops from the state variable 
-        appState.sliderValues = [...sliderElement.values];
-        // console.log("Updated histogram color stops", histogramElement.colorStops); // log for debug
-        
-        // calling updateUI, which should only be using state variables
-        updateUI();
+        updateUI(); // calling update UI which uses state variables to update histogram, renderer, swatch, buttons, etc
     }
 
     /* 
@@ -778,23 +727,28 @@ async function populateDialogForField() {
         }
     }
     
-    // attaching the proper event listener based on the current value of the switch
-    attachSliderListener(updateSwitch.value);
+    /* 
+    INITIALIZING THE UPDATE SWITCH
+    */
+    appState.updateSwitch = updateSwitch.value; // assigning the state updateSwitch to the current swith value
+    attachSliderListener(appState.updateSwitch); // attaching the proper event listener based on the current value of the switch
 
-    // Switch change handling
+    // Switch change handling for the DOM element
     updateSwitch.addEventListener("calciteSwitchChange", () => {
         // set to 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
         updateSwitch.value = updateSwitch.value === "discrete" ? "continuous" : "discrete";
+        appState.updateSwitch = updateSwitch.value; // reassigning the state updateSwitch to the current swith value
+
         // console.log("Switch value is now:", updateSwitch.value); // log for debug
         // any time the switch changes we need to attach the proper listener based on the switch value
-        attachSliderListener(updateSwitch.value); 
+        attachSliderListener(appState.updateSwitch); 
     });
 
-    // then we enable the switch for the user
+    // then we enable the switch (DOM ELEMENT) for the user
     updateSwitch.disabled = false;
     
-    // after creating the histogram, color swatch, vertical bars, and buttons, we return a written description
-    return buildDescription();
+    // finally, calling update UI which should update histogram, swatch, buttons, description
+    updateUI();
     
 } catch (err) {
     console.error("Error creating histogram:", err);
@@ -805,20 +759,81 @@ async function populateDialogForField() {
 UPDATING THE BUTTON POSITIONS
 */
 function updateButtons(){
-    for(let i = 1; i < sliderElement.values.length; i++){
-        // claculating the midpoint value of the current division of the color ramp
-        const midpoint = ((sliderElement.values[i] - sliderElement.values[i-1]) / 2) + sliderElement.values[i-1];
+    // clearing old buttons/bars
+
+    for(let i = 1; i < appState.sliderValues.length; i++){
+        // claculating the midpoint VALUE of the current division of the color ramp
+        const midpoint = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1];
+       
         // converting it to the percentge of the color ramp's width
-        const midpointPercent = ((midpoint - stats.min) / (stats.max - stats.min)) * 100;
-        // console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
-        buttons[i - 1].style.left = `${midpointPercent}%`;
+        const midpointPercent = ((midpoint - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100;
+        console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
+        // styling the button's left-alignment using the percentage along the color ramp
+        appState.buttons[i - 1].style.left = `${midpointPercent}%`;
     }
+}
+
+/* 
+UPDATING THE HISTOGRAM
+*/
+function updateHistogram(){
+    histogramElement.colorStops = appState.colorStops; // assigning the histogram's stops from the state variable
+}
+
+/* 
+UPDATING THE DESCRIPTION IN THE DIALOG
+*/
+function updateDescription(){
+    // console.log("Building a description for the summary statistics:", appState.stats); // log for debug
+
+    const descParts = [];
+
+    descParts.push(
+        `${appState.field.alias} has a value range of ${hf.DecimalPrecision2.round(appState.stats.min, 2).toLocaleString()} to ${hf.DecimalPrecision2.round(appState.stats.max, 2).toLocaleString()}, with a mean of ${hf.DecimalPrecision2.round(appState.stats.avg, 2).toLocaleString()} and a median of ${hf.DecimalPrecision2.round(appState.stats.median, 2).toLocaleString()}. With a skewness of ${hf.DecimalPrecision2.round(appState.stats.skewness, 2).toLocaleString()}, the distribution shows`
+    ); 
+
+    // Skew severity & direction
+    const skewAbs = Math.abs(appState.stats.skewness);
+
+    if (skewAbs > 0.25) {
+        let severity;
+        if (skewAbs > 1) {
+            severity = "substantial";
+        } else if (skewAbs > 0.5) {
+            severity = "moderate";
+        } else {
+            severity = "slight";
+        }
+
+        const direction = appState.stats.skewness > 0 ? "positive (right)" : "negative (left)";
+        descParts.push(`${severity} ${direction} skew.`);
+    } else {
+        descParts.push(" no noticeable skew.");
+
+    }
+
+    // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
+    
+    // // Kurtosis severity
+    const kurtosisAbs = Math.abs(appState.stats.kurtosis);
+    let kurtosisSeverity;
+    if (kurtosisAbs > 1) {
+        kurtosisSeverity = "a leptokurtic (peaked)";
+    } else if (kurtosisAbs < -1) {
+        kurtosisSeverity = "a platykurtic (flat)";
+    } else {
+        kurtosisSeverity = "an approximately normal";
+    }
+    descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating ${kurtosisSeverity} distribution.`)
+
+    appState.description = descParts.join(" "); // assigning it to the state variable
 }
 
 /* 
 UPDATING THE COLOR SWATCH
 */
 function updateSwatch() {
+
     const gradientParts = appState.colorStops.map((stop, index) => {
         
         const percent = ((stop.value - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100; // getting the color stop's percentage along based on its value
@@ -826,8 +841,8 @@ function updateSwatch() {
         // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`); // log for debug
 
         const bar = document.getElementById(`bar${index}`); // updating the position of the corresponding vertical bar 
+        console.log(`Moving bar index ${index} to color ${stop.color} at value ${stop.value}`) // log for debug
         bar.style.left = `${Math.min(percent, 99.5)}%`;
-        // console.log(`Color stops are currently ${stop.color} at value ${stop.value}`) // log for debug
         
         return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
     });
@@ -847,7 +862,7 @@ function updateRenderer() {
     const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");
     if (colorVarIndex === -1) {
         console.warn("No color visual variable found in renderer.");
-        warnUser("Error updating map renderer with color ramp information");
+        hf.warnUser("Error updating map renderer with color ramp information");
         return;
     }
 
@@ -866,7 +881,7 @@ function updateRenderer() {
     colorVariable.stops = colorVariable.stops.map((stop, i) => ({
         ...stop,
         color: appState.colorStops[i]?.color || [0, 0, 0], // grabbing the colr from the associated hisotgram break
-        value: sliderValues[i] // grabbing the value from the associated slider element
+        value: appState.sliderValues[i] // grabbing the value from the associated slider element
     }));
 
     renderer.visualVariables[colorVarIndex] = colorVariable;
@@ -905,17 +920,15 @@ function determineSliderChanges(oldValues, newValues) {
 // FUNCTION FOR QUERYING ALL DATA FROM A FIELD
 async function getAllFeatures() {
   try {
-    console.log("grabbing item from the URL: ", appState.layer.url);
+    console.log("layer parsed URL:", appState.layer.parsedUrl.path); // log for debug
 
     const results = await queryAllFeatures({
-      url: appState.layer.url,
-      outFields: [appState.field]
+      url: appState.layer.parsedUrl.path,
+      outFields: [appState.field.name] // need to specify the name, as appState.field is a field object
     });
-
-    // console.log('full query results', results) // log for debug
     return results;
   } catch (err) {
-    warnUser(`Error querying all features for field: ${appState.field.name}`);
+    hf.warnUser(`Error querying all features for field: ${appState.field.name}`);
     console.error('err', err);
     return null;
   }
