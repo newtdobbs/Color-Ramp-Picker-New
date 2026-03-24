@@ -89,7 +89,8 @@ const appState = {
     buttons: [], // the buttons for adding stops
     defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
     fieldsList: null, // the full fields list for the service
-    updateSwitch: null // the value (discrete v. continuous) of the updateSwitch
+    updateSwitch: null, // the value (discrete v. continuous) of the updateSwitch
+    swatch: null,
 }
 
 /* 
@@ -476,10 +477,10 @@ async function calculateSkewAndKurtosis() {
     });
     const thirdMoment = summedDiffs / n;
 
-    // Population skew
+    // populatoin skew
     const populationSkew = thirdMoment / Math.pow(appState.stats.stddev, 3);
 
-    // Bias correction (sample skew)
+    // bias correction for sample skew
     const sampleSkew = populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
 
     // then we'll calucalte kurtosis
@@ -491,10 +492,10 @@ async function calculateSkewAndKurtosis() {
     });
     const kurtosis = accumulator();
 
-    // console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
+    console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
 
     // then adding these values to the global app state
-    appState.stats.skew = sampleSkew;
+    appState.stats.skewness = sampleSkew;
     appState.stats.kurtosis = kurtosis;
 }
 
@@ -502,11 +503,40 @@ async function calculateSkewAndKurtosis() {
 OVERALL FUNCTION TO UPDATE ALL UI
 */
 function updateUI(){
+    // everything here will pull from appState.sliderValues
     updateHistogram();
     updateRenderer();
     updateDescription();
     updateSwatch();
     updateButtons();
+
+    console.log('----------- UI DEBUG -----------');
+    // first the slider values
+    let str = "";
+    appState.sliderValues.forEach(value => {
+        str += value + ', ';
+    });
+    console.log(`Slider values => \n${str}`);   
+    
+    // then the histogram stops
+    str = "";
+    appState.colorStops.forEach((stop, index) => {
+        str += `Stop ${index} - value: ${stop.value} - color: ${stop.color}; `;
+    });
+    console.log(`Histogram color stops => \n${str}`);   
+    
+    // then the swatch
+    console.log(`Color swatch => \n${appState.swatch}`);   
+    
+    // then the buttons
+    str = "";
+    appState.buttons.forEach(button => {
+        str += button + ', ';
+    });
+    console.log(`Buttons => \n${str}`);   
+
+    console.log('--------------------------------');
+
 }
 
 async function populateDialogForField() {
@@ -623,39 +653,41 @@ async function populateDialogForField() {
         // event listener for click to add a color stop at the button's location
         button.addEventListener("click", () => {
             
-            // if a button was clicked, we need to loop through the stops and find the surrounding color stops
-            let stops = appState.colorStops;
-            let lowerStop = stops[0];
-            let upperStop = stops[stops.length - 1];
-            for (let j = 0; j < stops.length - 1; j++){
-                if(buttonValue >= stops[j].value && buttonValue <= stops[j + 1].value) {
-                    lowerStop = stops[j];
-                    upperStop = stops[j + 1];
-                    break;
-                } 
-            }
+            // // if a button was clicked, we need to loop through the stops and find the surrounding color stops
+            // let stops = appState.colorStops;
+            // let lowerStop = stops[0];
+            // let upperStop = stops[stops.length - 1];
+            // for (let j = 0; j < stops.length - 1; j++){
+            //     if(buttonValue >= stops[j].value && buttonValue <= stops[j + 1].value) {
+            //         lowerStop = stops[j];
+            //         upperStop = stops[j + 1];
+            //         break;
+            //     } 
+            // }
                         
-            // Midpoint value between the two stops
-            let midpoint = ((upperStop.value - lowerStop.value) / 2) + lowerStop.value;
+            // // Midpoint value between the two stops
+            // let midpoint = ((upperStop.value - lowerStop.value) / 2) + lowerStop.value;
 
-            // Fraction between lower and upper stops
-            let fraction = (midpoint - lowerStop.value) / (upperStop.value - lowerStop.value);
+            // // Fraction between lower and upper stops
+            // let fraction = (midpoint - lowerStop.value) / (upperStop.value - lowerStop.value);
 
-            // Interpolate RGB channels
-            let resultRed   = Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0]));
-            let resultGreen = Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1]));
-            let resultBlue  = Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]));
+            // // Interpolate RGB channels
+            // let resultRed   = Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0]));
+            // let resultGreen = Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1]));
+            // let resultBlue  = Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]));
 
-            console.log(`Adding stop at value ${midpoint} with color rgb(${resultRed},${resultGreen},${resultBlue})`);
+            // console.log(`Adding stop at value ${midpoint} with color rgb(${resultRed},${resultGreen},${resultBlue})`);
 
-            // addding the new stop to our histogram element
-            histogramElement.colorStops.push({
-                color: [resultRed, resultGreen, resultBlue],
-                value: midpoint
-            });
-            histogramElement.colorStops.sort((a, b) => a.value - b.value); // and resorting the stops by value
+            // // addding the new stop to our histogram element
+            // histogramElement.colorStops.push({
+            //     color: [resultRed, resultGreen, resultBlue],
+            //     value: midpoint
+            // });
+            // histogramElement.colorStops.sort((a, b) => a.value - b.value); // and resorting the stops by value
 
-            appState.colorStops = histogramElement.colorStops; // update state
+            // appState.colorStops = histogramElement.colorStops; // update state
+
+            sliderElement.values.push(buttonValue);
             sliderHandler(); // update the UI
         });
 
@@ -767,7 +799,7 @@ function updateButtons(){
        
         // converting it to the percentge of the color ramp's width
         const midpointPercent = ((midpoint - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100;
-        console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
+        // console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
         // styling the button's left-alignment using the percentage along the color ramp
         appState.buttons[i - 1].style.left = `${midpointPercent}%`;
     }
@@ -846,8 +878,9 @@ function updateSwatch() {
         
         return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
     });
-    // creating a linear gradient from the pieces we just assembled from the color stops
-    swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
+    // creating a linear gradient from the pieces we just assembled from the color stops, assigning to state
+    appState.swatch = `linear-gradient(to right, ${gradientParts.join(", ")})`;
+    swatch.style.background = appState.swatch;
 } 
 
 /* 
