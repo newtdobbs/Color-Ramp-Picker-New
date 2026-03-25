@@ -494,3 +494,65 @@ function calculateIntermediateStop(kurtosisValue, kurtosisCap, sd){
     }
 
 }
+
+// old code used to update after a button was clicked
+
+ // // if a button was clicked, we need to loop through the stops and find the surrounding color stops
+            // let stops = appState.colorStops;
+            // let lowerStop = stops[0];
+            // let upperStop = stops[stops.length - 1];
+            // for (let j = 0; j < stops.length - 1; j++){
+            //     if(buttonValue >= stops[j].value && buttonValue <= stops[j + 1].value) {
+            //         lowerStop = stops[j];
+            //         upperStop = stops[j + 1];
+            //         break;
+            //     } 
+            // }
+                        
+            // // Midpoint value between the two stops
+            // let midpoint = ((upperStop.value - lowerStop.value) / 2) + lowerStop.value;
+
+            // // Fraction between lower and upper stops
+            // let fraction = (midpoint - lowerStop.value) / (upperStop.value - lowerStop.value);
+
+            // // Interpolate RGB channels
+            // let resultRed   = Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0]));
+            // let resultGreen = Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1]));
+            // let resultBlue  = Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]));
+
+            // console.log(`Adding stop at value ${midpoint} with color rgb(${resultRed},${resultGreen},${resultBlue})`);
+
+            // // addding the new stop to our histogram element
+            // histogramElement.colorStops.push({
+            //     color: [resultRed, resultGreen, resultBlue],
+            //     value: midpoint
+            // });
+            // histogramElement.colorStops.sort((a, b) => a.value - b.value); // and resorting the stops by value
+
+            // appState.colorStops = histogramElement.colorStops; // update state
+
+            
+// FUNCTION FOR DETECTING SLIDER CHANGE (AGNOSTIC TO NUMBER OF SLIDERS)
+function determineSliderChanges(oldValues, newValues) {
+    // lengths must be equal for a valid index-by-index comparison
+    if (oldValues.length !== newValues.length) {
+        console.error("Arrays must have the same length for index-by-index comparison.");
+        return [];
+    }
+
+    // filter the old array to find the value NOT present in the new array
+    const oldSliderValue = oldValues.filter(val => !newValues.includes(val))[0];
+    // console.log(`Missing value ${oldSliderValue}`); // log for debug
+
+    // find the index in the old array of that missing value 
+    // console.log(`old values: ${oldValues}`); // log for debug
+    const oldSliderIndex = oldValues.indexOf(oldSliderValue);
+    
+    // determining the new value 
+    const newSliderValue = newValues.filter(val => !oldValues.includes(val))[0]; // index 0 as only one should change at a time
+    const newSliderIndex = newValues.indexOf(newSliderValue);
+    // console.log(`Slider ${oldSliderIndex} changed to new value: ${newSliderValue}`); // log for debug
+
+    return [oldSliderIndex, oldSliderValue, newSliderIndex, newSliderValue];
+
+}
