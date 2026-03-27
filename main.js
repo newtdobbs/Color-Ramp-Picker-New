@@ -147,30 +147,31 @@ document.querySelector("calcite-action-bar").addEventListener("click", handleAct
 
 
 async function createBasemapOnlyView() {
+    const map = new Map({
+        basemap: 'gray-vector',
+        layers: []
+    });
 
-  const map = new Map({
-    basemap: 'gray-vector',
-    layers: []
-  });
+    // assigining the map to the default app's state
+    appState.map = map;
 
-  // assigining the map to the default app's state
-  appState.map = map;
+    const view = new MapView({
+        container: mapContainer, // the dom element to hold our map
+        map: map,
+        ui: { components: [] }
+    });
+    appState.view = view;
 
-  const view = new MapView({
-    container: mapContainer, // the dom element to hold our map
-    map: map,
-    ui: { components: [] }
-  });
-  appState.view = view;
+    console.log('view:', view)
+    appState.view.when(() => {
+        appState.view.goTo({ scale: default_scale, center: default_center }); // zooming to the lower 48 centered 
+    })
 
-  console.log('view:', view)
-  appState.view.goTo({ scale: default_scale, center: default_center }); // zooming to the lower 48 centered 
+        if (basemapGallery) {
+        basemapGallery.view = view; // bind the MapView directly
+    }
 
-  if (basemapGallery) {
-    basemapGallery.view = view; // bind the MapView directly
-  }
-
-  return view;
+    return view;
 }
 
 
@@ -320,15 +321,17 @@ async function createMap() {
         appState.layer = layer;
 
         // zooming to the midpoint of the selected layer's visibility
+        console.log(`Layer scale is from ${appState.layer.minScale} ${appState.layer.maxScale}`);
+
         let layerMinScale;
-        if (layer.minScale === 0){
-            layerMinScale = 1
+        if (appState.layer.minScale === 0){
+            layerMinScale = default_scale;
         } else {
             layerMinScale = appState.layer.minScale;
         }
         const midScale = Math.floor((layerMinScale + appState.layer.maxScale) / 2);
   
-        // console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
+        console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
         appState.view.goTo({ scale: midScale, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
 
 
@@ -630,16 +633,17 @@ async function initializeDialogForField() {
     sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
     // creating swatch bars
-    appState.sliderValues.forEach((value, index) => { // creating vertical bars for each slider value
-        const bar = document.createElement('div'); // creating a div
-        bar.id = `bar${index}`; 
-        bar.classList.add('vertical'); // assigning it to the vertical class so it gets the styles 
-        swatch.appendChild(bar); // finally adding the bar to the color swatch
-    });
+    // appState.sliderValues.forEach((value, index) => { // creating vertical bars for each slider value
+    //     const bar = document.createElement('div'); // creating a div
+    //     bar.id = `bar${index}`; 
+    //     bar.classList.add('vertical'); // assigning it to the vertical class so it gets the styles 
+    //     swatch.appendChild(bar); // finally adding the bar to the color swatch
+    // });
 
     // creating buttons
     for(let i = 1; i < appState.sliderValues.length; i++){
-        createButton(); // creating a button for each of the sliderValues
+        const underlyingButtonValue = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1];; // this gets the midpoint value between the surrounding stop's
+        createButton(underlyingButtonValue); // creating a button BETWEEN each of the sliders, so we index from 1 and use i < sliderValues.length
     };
 
     // // then updating the buttons
@@ -669,34 +673,6 @@ async function initializeDialogForField() {
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
     
-
-    function sliderHandler() {
-        
-        // first we need to update the state variables to just pull from there
-        const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
-            ...colorStop,
-            value: appState.sliderValues[i] // these are the NEW values currently in the slider
-        })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
-        appState.colorStops = newStops; // assigning the new slider stops to the state variable 
-        appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
-        
-        // calling updateUI, which should only be using state variables
-        updateUI(); 
-    }
-
-    // helper functiont to assign the correct event listener based on the input switch's mode
-    function attachSliderListener(switchVal) {
-       // Remove any existing listeners to avoid duplicates
-        sliderElement.removeEventListener("arcgisChange", sliderHandler);
-        sliderElement.removeEventListener("arcgisInput", sliderHandler);
-
-        // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
-        if (switchVal === "discrete") {
-            sliderElement.addEventListener("arcgisChange", sliderHandler);
-        } else {
-            sliderElement.addEventListener("arcgisInput", sliderHandler);
-        }
-    }
     
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener(updateSwitch.value);
@@ -716,6 +692,35 @@ async function initializeDialogForField() {
 } catch (err) {
     console.error("Error creating histogram:", err);
   }
+}
+
+// helper functiont to assign the correct event listener based on the input switch's mode
+function attachSliderListener(switchVal) {
+    // Remove any existing listeners to avoid duplicates
+    sliderElement.removeEventListener("arcgisChange", sliderHandler);
+    sliderElement.removeEventListener("arcgisInput", sliderHandler);
+
+    // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
+    if (switchVal === "discrete") {
+        sliderElement.addEventListener("arcgisChange", sliderHandler);
+    } else {
+        sliderElement.addEventListener("arcgisInput", sliderHandler);
+    }
+}
+
+
+function sliderHandler() {
+    
+    // first we need to update the state variables to just pull from there
+    const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
+        ...colorStop,
+        value: appState.sliderValues[i] // these are the NEW values currently in the slider
+    })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
+    appState.colorStops = newStops; // assigning the new slider stops to the state variable 
+    appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
+    
+    // calling updateUI, which should only be using state variables
+    updateUI(); 
 }
 
 function updateHistogram(){
@@ -763,8 +768,8 @@ function updateSwatch() {
         
         // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`); // log for debug
 
-        const bar = document.getElementById(`bar${index}`); // updating the position of the corresponding vertical bar 
-        bar.style.left = `${Math.min(percent, 99.5)}%`;
+        // const bar = document.getElementById(`bar${index}`); // updating the position of the corresponding vertical bar 
+        // bar.style.left = `${Math.min(percent, 99.5)}%`; 
         // console.log(`Color stops are currently ${stop.color} at value ${stop.value}`) // log for debug
         
         return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
@@ -773,7 +778,7 @@ function updateSwatch() {
     swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
 } 
 
-function createButton(){
+function createButton(buttonValue){
     const button = document.createElement('calcite-button'); // creating the calcite button
     button.iconStart = "plus";
     button.label = "Add color stop";
@@ -798,34 +803,31 @@ function createButton(){
 
     // event listener for click to add a color stop at the button's location
     button.addEventListener("click", () => {
-        
-        // if a button was clicked, we need to loop through the stops and find the surrounding color stops
-        let stops = appState.colorStops;
-        let lowerStop = stops[0];
-        let upperStop = stops[stops.length - 1];
-        for (let j = 0; j < stops.length - 1; j++){
-            if(buttonValue >= stops[j].value && buttonValue <= stops[j + 1].value) {
-                lowerStop = stops[j];
-                upperStop = stops[j + 1];
-                break;
-            } 
-        }
-                    
-        // Interpolate RGB channels BETWEEN STOPS
-        let resultRed   = Math.round(lowerStop.color[0] + midpointPercent * (upperStop.color[0] - lowerStop.color[0]));
-        let resultGreen = Math.round(lowerStop.color[1] + midpointPercent * (upperStop.color[1] - lowerStop.color[1]));
-        let resultBlue  = Math.round(lowerStop.color[2] + midpointPercent * (upperStop.color[2] - lowerStop.color[2]));
-                    
-        //     console.log(`Adding a slider stop at value ${midpoint} with color 
-        console.log(`Adding stop for button ${i} at value ${buttonValue} with the color rgb(${resultRed},${resultGreen},${resultBlue})`)
-        
-        // creating a new color stop using the midpoint between the surrounding stops, and the interpolated color
-        histogramElement.colorStops.push({ color: [resultRed, resultGreen, resultBlue], value: midpoint });
-        histogramElement.colorStops.sort((a, b) => a.value - b.value); // resorting the histogram stops
-        
-        // then we should just be able to call updateSliderHandler, which will update histogram, renderer, color swatch, and new button locations
-        sliderHandler();
-    });
+    // 1. Find where to insert the new value
+    let insertIndex = appState.sliderValues.findIndex(v => v > buttonValue);
+    if (insertIndex === -1) insertIndex = appState.sliderValues.length;
+
+    // 2. Interpolate color between lower and upper stops
+    let lowerStop = appState.colorStops[insertIndex - 1];
+    let upperStop = appState.colorStops[insertIndex];
+    let fraction = (buttonValue - lowerStop.value) / (upperStop.value - lowerStop.value);
+    let newColor = [
+        Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
+        Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
+        Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
+    ];
+
+    // 3. Insert new value and color stop into state arrays
+    appState.sliderValues.splice(insertIndex, 0, buttonValue);
+    appState.colorStops.splice(insertIndex, 0, { color: newColor, value: buttonValue });
+
+    // 4. Update DOM elements
+    sliderElement.values = [...appState.sliderValues];
+    histogramElement.colorStops = [...appState.colorStops];
+
+    // 5. Update UI
+    updateUI();
+});
 
     // button.style.left = `${percentAlongSwatch}%` // the button's position will be determined in updateButtons() 
     swatch.appendChild(button); // adding the button to the swatch div
@@ -836,23 +838,26 @@ function createButton(){
 NEED TO VERIFY: should we loop through the buttons themselves, or the slider elements
 */
 
-function updateSwatch(){
+// function updateSwatch(){
     // loop through the sliderValues
-    sliderValues.forEach()
+    // sliderValues.forEach()
     // grab the corresponding vertical bar
     // reverse-calculate it's left percentage using the sliderValue[i]
     // use this to change it's style
-}
+// }
 
 function updateButtons(){
-    for(let i = 0; i < appState.sliderValues.length; i++){
 
-        if(i == 1)
+    swatch.innerHTML = "";
+    appState.buttons = [];
+
+    for(let i = 1; i < appState.sliderValues.length; i++){
 
         // shifting the buttons 
         const midpoint = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1]; // midpoint value of the current division of the color ramp 
         const midpointPercent = ((midpoint - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100; // percentge of the color ramp's width
         // console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
+        const button = createButton(midpoint);
         appState.buttons[i - 1].style.left = `${midpointPercent}%`;
     }
 }
