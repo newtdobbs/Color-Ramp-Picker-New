@@ -90,7 +90,8 @@ const appState = {
     buttons: [], // the buttons for adding stops
     defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
     fieldsList: null, // the full fields list for the service
-    renderer: null
+    renderer: null,
+    sliderActive: false,
 }
 
 /* 
@@ -679,7 +680,7 @@ async function initializeDialogForField() {
 
     // Switch change handling
     updateSwitch.addEventListener("calciteSwitchChange", () => {
-        updateSwitch.value = updateSwitch.value === "discrete" ? "continuous" : "discrete"; // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
+        updateSwitch.value = updateSwitch.value === "static" ? "responsive" : "static"; // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
         attachSliderListener(updateSwitch.value); // need to attach the proper listener based on the switch value
     });
 
@@ -694,17 +695,36 @@ async function initializeDialogForField() {
   }
 }
 
+function hideButtonsOnDrag() {
+  // hiding buttons when slider is being dragged
+  appState.buttons.forEach(b => {b.style.visibility = 'hidden'});
+
+}
+
+function showButtonsOnRelease() {
+    // showinng buttons when released
+    appState.buttons.forEach(b => {b.style.visibility = 'visible'});
+}
+
 // helper functiont to assign the correct event listener based on the input switch's mode
 function attachSliderListener(switchVal) {
     // Remove any existing listeners to avoid duplicates
     sliderElement.removeEventListener("arcgisChange", sliderHandler);
     sliderElement.removeEventListener("arcgisInput", sliderHandler);
+    sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
+    sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease);
+
 
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
-    if (switchVal === "discrete") {
+    if (switchVal === "static") {
         sliderElement.addEventListener("arcgisChange", sliderHandler);
+
+        sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+        sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
     } else {
         sliderElement.addEventListener("arcgisInput", sliderHandler);
+        sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+        sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
     }
 }
 
@@ -721,6 +741,10 @@ function sliderHandler() {
     
     // calling updateUI, which should only be using state variables
     updateUI(); 
+
+}
+function commitCheck(){
+    console.log('change committed')
 }
 
 function updateHistogram(){
