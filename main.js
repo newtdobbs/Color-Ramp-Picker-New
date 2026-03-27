@@ -633,13 +633,6 @@ async function initializeDialogForField() {
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
     sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
-    // creating swatch bars
-    // appState.sliderValues.forEach((value, index) => { // creating vertical bars for each slider value
-    //     const bar = document.createElement('div'); // creating a div
-    //     bar.id = `bar${index}`; 
-    //     bar.classList.add('vertical'); // assigning it to the vertical class so it gets the styles 
-    //     swatch.appendChild(bar); // finally adding the bar to the color swatch
-    // });
 
     // creating buttons
     for(let i = 1; i < appState.sliderValues.length; i++){
@@ -789,13 +782,6 @@ function updateSwatch() {
     const gradientParts = appState.colorStops.map((stop, index) => {
         
         const percent = ((stop.value - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100; // getting the color stop's percentage along based on its value
-        
-        // console.log(`Creating stop at value ${stop.value} for index ${index} at ${percent}%`); // log for debug
-
-        // const bar = document.getElementById(`bar${index}`); // updating the position of the corresponding vertical bar 
-        // bar.style.left = `${Math.min(percent, 99.5)}%`; 
-        // console.log(`Color stops are currently ${stop.color} at value ${stop.value}`) // log for debug
-        
         return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
     });
     // creating a linear gradient from the pieces we just assembled from the color stops
