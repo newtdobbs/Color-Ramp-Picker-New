@@ -92,6 +92,9 @@ const appState = {
     fieldsList: null, // the full fields list for the service
     renderer: null,
     sliderActive: false,
+    switchValue: "static", // we defualt to static changes
+    initialValues: null // this should only ever be assigned upon field initialization
+    // initialStops: null // this should only ever be assigned upon field initialization
 }
 
 /* 
@@ -111,6 +114,7 @@ const sliderElement = document.getElementById("color-slider");
 const swatch = document.getElementById("color-swatch");
 const histogramElement = document.getElementById("histogram");
 const updateSwitch = document.getElementById("update-switch");
+const resetButton = document.getElementById("reset-button");
 
  const handleActionBarClick = ({ target }) => {
 
@@ -499,7 +503,7 @@ async function calculateSkewAndKurtosis() {
     // console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
 
     // then adding these values to the global app state
-    appState.stats.skew = sampleSkew;
+    appState.stats.skewness = sampleSkew;
     appState.stats.kurtosis = kurtosis;
 }
 
@@ -561,6 +565,10 @@ function initializeUI(){
     updateSwatch();
     updateButtons();
     buildDescription();
+    console.log('------------ INITIAL UI DEBUG ------------------') // log for debug
+    console.log('Slider stops are', appState.sliderValues)
+    console.log('color stops are', appState.colorStops)
+    console.log('----------------------------------------') // log for debug
 }
     
 /* 
@@ -573,6 +581,10 @@ function updateUI(){
     // updateDescription();
     updateSwatch();
     updateButtons();
+    console.log('------------ UPDATE UI DEBUG ------------------') // log for debug
+    console.log('Slider stops are', appState.sliderValues)
+    console.log('color stops are', appState.colorStops)
+    console.log('----------------------------------------') // log for debug
 }
 
 async function initializeDialogForField() {
@@ -606,6 +618,10 @@ async function initializeDialogForField() {
         theme: "above-and-below",
         name: "Purple and Green 10"
     });
+
+    console.log('Matching scheme determined as:', matchingScheme)
+
+
     // setting parameters for a continuous renderer
     const colorParams = {
         view: appState.view,
@@ -628,11 +644,12 @@ async function initializeDialogForField() {
     sliderElement.max = appState.stats.max;
     // 5 stop slider
     sliderElement.values = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max]; // defaulting to min, max, mean, 1sd above and below mean
+    appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
+    appState.initialValues = sliderElement.values; // storing the the initial slider values to handle reset 
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
     sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
-    appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
 
     // creating buttons
     for(let i = 1; i < appState.sliderValues.length; i++){
@@ -666,6 +683,7 @@ async function initializeDialogForField() {
     ];  
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
+    appState.initialStops = histogramElement.colorStops; // storing initial histogram stops f
     
     
     // attaching the proper event listener based on the current value of the switch
@@ -677,25 +695,33 @@ async function initializeDialogForField() {
         attachSliderListener(updateSwitch.value); // need to attach the proper listener based on the switch value
     });
 
+    // reset button handling
+    resetButton.addEventListener("click",  () => {
+        console.log('reset clicked')
+        sliderElement.values =  appState.initialValues;// this resets to just the 5 initial stops on the DOM element
+        sliderElement.values =  appState.;// this resets to just the 5 initial stops on the DOM element
+        sliderHandler(); // sliderHandler resets appState.sliderValues and the colorstops, and calls updateUI()
+    })
+
     // then we enable the switch for the user
     updateSwitch.disabled = false;
     
-    // after creating the histogram, color swatch, vertical bars, and buttons, we return a written description    
-    updateUI();
+    // we have to call this function as even though updateUI() is within sliderHandler
+    // its not actually called when the app is initialized, we merely add an event listener for it    
+    initializeUI();
     
 } catch (err) {
     console.error("Error creating histogram:", err);
   }
 }
 
+// hiding buttons when slider is being dragged
 function hideButtonsOnDrag() {
-  // hiding buttons when slider is being dragged
   appState.buttons.forEach(b => {b.style.visibility = 'hidden'});
-
 }
 
+// showinng buttons when released
 function showButtonsOnRelease() {
-    // showinng buttons when released
     appState.buttons.forEach(b => {b.style.visibility = 'visible'});
 }
 
@@ -710,34 +736,30 @@ function attachSliderListener(switchVal) {
 
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
     if (switchVal === "static") {
-        sliderElement.addEventListener("arcgisChange", sliderHandler);
-
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+        sliderElement.addEventListener("arcgisChange", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
     } else {
-        sliderElement.addEventListener("arcgisInput", sliderHandler);
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+        sliderElement.addEventListener("arcgisInput", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
     }
 }
 
 
 function sliderHandler() {
+
+    appState.sliderValues = [...sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
     
-    // first we need to update the state variables to just pull from there
     const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
         ...colorStop,
         value: appState.sliderValues[i] // these are the NEW values currently in the slider
     })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
-    appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
+    // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
     
     // calling updateUI, which should only be using state variables
     updateUI(); 
-
-}
-function commitCheck(){
-    console.log('change committed')
 }
 
 function updateHistogram(){
@@ -813,48 +835,37 @@ function createButton(buttonValue){
 
     // event listener for click to add a color stop at the button's location
     button.addEventListener("click", () => {
-    // 1. Find where to insert the new value
-    let insertIndex = appState.sliderValues.findIndex(v => v > buttonValue);
-    if (insertIndex === -1) insertIndex = appState.sliderValues.length;
+        // determining WHERE to insert the new value
+        let insertIndex = appState.sliderValues.findIndex(v => v > buttonValue);
+        if (insertIndex === -1) insertIndex = appState.sliderValues.length;
 
-    // 2. Interpolate color between lower and upper stops
-    let lowerStop = appState.colorStops[insertIndex - 1];
-    let upperStop = appState.colorStops[insertIndex];
-    let fraction = (buttonValue - lowerStop.value) / (upperStop.value - lowerStop.value);
-    let newColor = [
-        Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
-        Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
-        Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
-    ];
+        // interpolating between the color stops above and below the value
+        let lowerStop = appState.colorStops[insertIndex - 1];
+        let upperStop = appState.colorStops[insertIndex];
+        let fraction = (buttonValue - lowerStop.value) / (upperStop.value - lowerStop.value);
+        let newColor = [
+            Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
+            Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
+            Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
+        ];
 
-    // 3. Insert new value and color stop into state arrays
-    appState.sliderValues.splice(insertIndex, 0, buttonValue);
-    appState.colorStops.splice(insertIndex, 0, { color: newColor, value: buttonValue });
+        // inserting a new value into the state variables FIRST, the sliderValues and colorStops array
+        appState.sliderValues.splice(insertIndex, 0, buttonValue);
+        appState.colorStops.splice(insertIndex, 0, { color: newColor, value: buttonValue });
 
-    // 4. Update DOM elements
-    sliderElement.values = [...appState.sliderValues];
-    histogramElement.colorStops = [...appState.colorStops];
+        
+        // then updating DOM elements form there
+        sliderElement.values = [...appState.sliderValues];
+        histogramElement.colorStops = [...appState.colorStops];
 
-    // 5. Update UI
-    updateUI();
-});
+        // updating UI
+        updateUI();
+    });
 
     // button.style.left = `${percentAlongSwatch}%` // the button's position will be determined in updateButtons() 
     swatch.appendChild(button); // adding the button to the swatch div
     appState.buttons.push(button); // adding the to the app app state
 }
-
-/* 
-NEED TO VERIFY: should we loop through the buttons themselves, or the slider elements
-*/
-
-// function updateSwatch(){
-    // loop through the sliderValues
-    // sliderValues.forEach()
-    // grab the corresponding vertical bar
-    // reverse-calculate it's left percentage using the sliderValue[i]
-    // use this to change it's style
-// }
 
 function updateButtons(){
 

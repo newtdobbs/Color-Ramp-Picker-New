@@ -73,9 +73,18 @@
                <calcite-label layout="inline" slot="footer-end"> 
                  Static
                  <!-- adding a switch with a default value of "discrete" -->
-                 <calcite-switch disabled id="update-switch" value="discrete"></calcite-switch>
+                 <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
                  Responsive
                 </calcite-label>
+                <!-- adding a button to reset the color stops -->
+                <calcite-button
+                  label="Reset Stops"
+                  width="full"
+                  round
+                  id="reset-button"
+                  >
+                  Reset Stops
+              </calcite-button>
               </div>
           </div>
           <div id="dialog-description" slot="footer"></div>
