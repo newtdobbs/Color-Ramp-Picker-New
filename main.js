@@ -94,7 +94,8 @@ const appState = {
     sliderActive: false,
     switchValue: "static", // we defualt to static changes
     initialValues: null, // this should only ever be assigned upon field initialization
-    initialStops: null // this should only ever be assigned upon field initialization
+    initialStops: null, // this should only ever be assigned upon field initialization
+    offsetBase: null,
 }
 
 /* 
@@ -520,38 +521,41 @@ function buildDescription() {
     ); 
 
     // Skew severity & direction
+    
     const skewAbs = Math.abs(appState.stats.skewness);
-
     if (skewAbs > 0.25) {
-        let severity;
+        let skewSeverity;
         if (skewAbs > 1) {
-            severity = "substantial";
+            skewSeverity = "substantial";
         } else if (skewAbs > 0.5) {
-            severity = "moderate";
+            skewSeverity = "moderate";
         } else {
-            severity = "slight";
+            skewSeverity = "slight";
         }
 
-        const direction = appState.stats.skewness > 0 ? "positive (right)" : "negative (left)";
-        descParts.push(`${severity} ${direction} skew.`);
+        const skewDirection = appState.stats.skewness > 0 ? "positive (right)" : "negative (left)";
+        descParts.push(`${skewSeverity} ${skewDirection} skew.`);
     } else {
         descParts.push(" no noticeable skew.");
-
+        
     }
-
-    // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
     
-    // // Kurtosis severity
+    // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
+    descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating a`);
     const kurtosisAbs = Math.abs(appState.stats.kurtosis);
-    let kurtosisSeverity;
-    if (kurtosisAbs > 1) {
-        kurtosisSeverity = "a leptokurtic (peaked)";
-    } else if (kurtosisAbs < -1) {
-        kurtosisSeverity = "a platykurtic (flat)";
-    } else {
+    // if the kurtosis is more severe than 1 in either direction, we'll consider its severity & direction
+    if (kurtosisAbs > 1){ 
+        // severely peaked or flat distributions
+        if(kurtosisAbs > 2){
+            descParts.push("substantially")
+        }
+    // otherwise if its close to zero, we consider it approximately normal
+    } else { 
         kurtosisSeverity = "an approximately normal";
     }
-    descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating ${kurtosisSeverity} distribution.`)
+    const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykutic (flat)";
+    
+    descParts.push(`${kurtosisDirection} distribution.`)
 
     descParts.join(" ");
     
@@ -642,8 +646,16 @@ async function initializeDialogForField() {
     // grabbing the slider element & using the stats to adjust it
     sliderElement.min = appState.stats.min;
     sliderElement.max = appState.stats.max;
+    calculateIntermediateStops();
     // 5 stop slider
-    sliderElement.values = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max]; // defaulting to min, max, mean, 1sd above and below mean
+    sliderElement.values = [
+        appState.stats.min,
+        appState.intermediateStops[0],
+        appState.stats.avg,
+        appState.intermediateStops[1],
+        appState.stats.max
+    ];
+ // defaulting to min, max, mean, 1sd above and below mean
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
     appState.initialValues = sliderElement.values; // storing the the initial slider values to handle reset 
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
@@ -675,12 +687,13 @@ async function initializeDialogForField() {
     // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
     // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
     histogramElement.colorStops = [
-        { "color": [129, 0, 230], "value": appState.stats.min}, // first stop, min value at purple
-        { "color": [179, 96, 209], "value": appState.stats.avg - appState.stats.stddev}, // stop 2, purpley
-        { "color": [242, 207, 158], "value": appState.stats.avg}, // middle stop, mean at yellow
-        { "color": [110, 184, 48], "value": appState.stats.avg + appState.stats.stddev}, // stop 4, greenish
-        { "color": [43, 153, 0], "value": appState.stats.max} // last stop, max value at green
-    ];  
+    { color: [129, 0, 230], value: appState.stats.min },
+    { color: [179, 96, 209], value: appState.intermediateStops[0] },
+    { color: [242, 207, 158], value: appState.stats.avg },
+    { color: [110, 184, 48], value: appState.intermediateStops[1] },
+    { color: [43, 153, 0], value: appState.stats.max }
+    ];
+    
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
     appState.initialStops = histogramElement.colorStops; // storing initial histogram stops f
@@ -900,4 +913,26 @@ async function getAllFeatures() {
     console.error('err', err);
     return null;
   }
+}
+
+function calculateIntermediateStops(){
+    // we're gonna clamp the kurtosis to prevent wild scaling
+    const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
+    console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
+    const kScale =  1 / (1 + 0.3 * k); 
+    console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
+    
+    // we're also gonna clamp skew to prevent wild scaling
+    const s = Math.max(-5, Math.min(5, appState.stats.skewness));
+    console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
+    const leftSkewFactor = 1 - (0.2 * s);
+    const rightSkewFactor = 1 + (0.2 * s);
+
+    const leftOffset = appState.stats.stddev * kScale * leftSkewFactor
+    const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
+
+    const intermediateStops = [appState.stats.avg - leftOffset, appState.stats.avg + rightOffset];
+    console.log(`With a mean of ${appState.stats.avg}, the intermediate stops have been calculated as ${intermediateStops}`)
+
+    appState.intermediateStops = intermediateStops;
 }
