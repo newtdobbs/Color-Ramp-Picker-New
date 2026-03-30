@@ -93,8 +93,8 @@ const appState = {
     renderer: null,
     sliderActive: false,
     switchValue: "static", // we defualt to static changes
-    initialValues: null // this should only ever be assigned upon field initialization
-    // initialStops: null // this should only ever be assigned upon field initialization
+    initialValues: null, // this should only ever be assigned upon field initialization
+    initialStops: null // this should only ever be assigned upon field initialization
 }
 
 /* 
@@ -697,9 +697,10 @@ async function initializeDialogForField() {
 
     // reset button handling
     resetButton.addEventListener("click",  () => {
-        console.log('reset clicked')
+        console.log('reset clicked, resetting slider DOM element to initial values ')
         sliderElement.values =  appState.initialValues;// this resets to just the 5 initial stops on the DOM element
-        sliderElement.values =  appState.;// this resets to just the 5 initial stops on the DOM element
+        histogramElement.colorStops = appState.initialStops; // resetting histogram/renderer color stops to their initial values
+        appState.colorStops = histogramElement.colorStops; // then resetting state to pull from state variables on updateUI()
         sliderHandler(); // sliderHandler resets appState.sliderValues and the colorstops, and calls updateUI()
     })
 
