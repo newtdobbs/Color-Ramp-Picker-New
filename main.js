@@ -93,9 +93,12 @@ const appState = {
     renderer: null,
     sliderActive: false,
     switchValue: "static", // we defualt to static changes
-    initialValues: null, // this should only ever be assigned upon field initialization
-    initialStops: null, // this should only ever be assigned upon field initialization
+    defaultValues: null, // this should only ever be assigned upon field initialization
+    defaultStops: null, // this should only ever be assigned upon field initialization
+    lastCustomValues: null,
+    lastCustomStops: null,
     offsetBase: null,
+    symbologyToToggle: "Default",
 }
 
 /* 
@@ -655,9 +658,9 @@ async function initializeDialogForField() {
         appState.intermediateStops[1],
         appState.stats.max
     ];
- // defaulting to min, max, mean, 1sd above and below mean
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
-    appState.initialValues = sliderElement.values; // storing the the initial slider values to handle reset 
+    // SMART MAPPING DEFAULTS defaults as min, max, mean, 1sd above and below mean
+    appState.defaultValues = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max];
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
@@ -684,41 +687,76 @@ async function initializeDialogForField() {
     histogramElement.max = histogramResult.maxValue;
     histogramElement.bins = histogramResult.bins;
     
-    // defaulting our histogram's color stops to min, mean, max, and 1 sd above and below mean
+    // ACTUAL HISTOGRAM COLORSTOPS
     // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
     histogramElement.colorStops = [
-    { color: [129, 0, 230], value: appState.stats.min },
-    { color: [179, 96, 209], value: appState.intermediateStops[0] },
-    { color: [242, 207, 158], value: appState.stats.avg },
-    { color: [110, 184, 48], value: appState.intermediateStops[1] },
-    { color: [43, 153, 0], value: appState.stats.max }
+        { color: [129, 0, 230], value: appState.stats.min },
+        { color: [179, 96, 209], value: appState.intermediateStops[0] },
+        { color: [242, 207, 158], value: appState.stats.avg },
+        { color: [110, 184, 48], value: appState.intermediateStops[1] },
+        { color: [43, 153, 0], value: appState.stats.max }
     ];
     
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
-    appState.initialStops = histogramElement.colorStops; // storing initial histogram stops f
-    
+    // SMART MAPPING DEFAULTS
+    appState.defaultStops = [
+        { color: [129, 0, 230], value: appState.stats.min },
+        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev },
+        { color: [242, 207, 158], value: appState.stats.avg },
+        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev },
+        { color: [43, 153, 0], value: appState.stats.max }
+    ]; 
     
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener(updateSwitch.value);
 
     // Switch change handling
     updateSwitch.addEventListener("calciteSwitchChange", () => {
-        updateSwitch.value = updateSwitch.value === "static" ? "responsive" : "static"; // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
+        updateSwitch.value =  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
         attachSliderListener(updateSwitch.value); // need to attach the proper listener based on the switch value
     });
 
     // reset button handling
     resetButton.addEventListener("click",  () => {
-        console.log('reset clicked, resetting slider DOM element to initial values ')
-        sliderElement.values =  appState.initialValues;// this resets to just the 5 initial stops on the DOM element
-        histogramElement.colorStops = appState.initialStops; // resetting histogram/renderer color stops to their initial values
-        appState.colorStops = histogramElement.colorStops; // then resetting state to pull from state variables on updateUI()
-        sliderHandler(); // sliderHandler resets appState.sliderValues and the colorstops, and calls updateUI()
+        const newVal = appState.symbologyToToggle === "Default" ? "Custom" : "Default"; // determining value for current click
+        console.log(`Changing buttom label FROM ${appState.symbologyToToggle} to ${newVal}`)
+
+        // if we're using custom symbology, we want to TURN ON the default
+        if (appState.symbologyToToggle === "Default") {
+             // Save current custom configuration before overwriting
+            appState.lastCustomValues = [...appState.sliderValues];
+            appState.lastCustomStops = [...appState.colorStops];
+
+            // Apply defaults
+            sliderElement.values = [...appState.defaultValues];
+            histogramElement.colorStops = [...appState.defaultStops];
+            appState.sliderValues = [...appState.defaultValues];
+            appState.colorStops = [...appState.defaultStops];
+
+        // otherwise we're using default symbology, so we want to RESTORE the custom stops before we clicked the reset
+        } else {
+            if (appState.lastCustomValues && appState.lastCustomStops) {
+                sliderElement.values = [...appState.lastCustomValues];
+                histogramElement.colorStops = [...appState.lastCustomStops];
+                appState.sliderValues = [...appState.lastCustomValues];
+                appState.colorStops = [...appState.lastCustomStops];
+            } else {
+                hf.warnUser("No custom configuration stored to restore.");
+            }
+        }
+
+        updateUI(); // then we need to updateUI to reflect these changes in the map/histogram
+        
+        // then finally we adjust the label of the button
+        resetButton.textContent = newVal;
+        resetButton.label = newVal;
+        appState.symbologyToToggle = newVal; // then reassinging the state variable for successive clicks
     })
 
     // then we enable the switch for the user
     updateSwitch.disabled = false;
+    resetButton.disabled = false;
     
     // we have to call this function as even though updateUI() is within sliderHandler
     // its not actually called when the app is initialized, we merely add an event listener for it    
@@ -737,6 +775,7 @@ function hideButtonsOnDrag() {
 // showinng buttons when released
 function showButtonsOnRelease() {
     appState.buttons.forEach(b => {b.style.visibility = 'visible'});
+
 }
 
 // helper functiont to assign the correct event listener based on the input switch's mode
@@ -762,6 +801,11 @@ function attachSliderListener(switchVal) {
 
 
 function sliderHandler() {
+    // if a slider moves, we'll provide the option to reset defaults
+    console.log(`Current state of reset is ${resetButton.textContent}`)
+
+    resetButton.textContent === "Default" ? "Custom" : "Default"; 
+    resetButton.label === "Default" ? "Custom" : "Default"; 
 
     appState.sliderValues = [...sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
     
@@ -771,8 +815,14 @@ function sliderHandler() {
     })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
     // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
-    
-    // calling updateUI, which should only be using state variables
+
+    // here we'll update the with the latest custom stops
+    if (appState.symbologyToToggle === "Custom") {
+        appState.lastCustomValues = [...appState.sliderValues];
+        appState.lastCustomStops = [...appState.colorStops];
+    }
+
+    // finally calling updateUI, which should only be using state variables
     updateUI(); 
 }
 
@@ -918,21 +968,22 @@ async function getAllFeatures() {
 function calculateIntermediateStops(){
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
-    console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
+    // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
     const kScale =  1 / (1 + 0.3 * k); 
-    console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
+    // console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
     
     // we're also gonna clamp skew to prevent wild scaling
     const s = Math.max(-5, Math.min(5, appState.stats.skewness));
-    console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
+    // console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
     const leftSkewFactor = 1 - (0.2 * s);
     const rightSkewFactor = 1 + (0.2 * s);
 
     const leftOffset = appState.stats.stddev * kScale * leftSkewFactor
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
+    console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
 
     const intermediateStops = [appState.stats.avg - leftOffset, appState.stats.avg + rightOffset];
-    console.log(`With a mean of ${appState.stats.avg}, the intermediate stops have been calculated as ${intermediateStops}`)
+    // console.log(`With a mean of ${appState.stats.avg}, the intermediate stops have been calculated as ${intermediateStops}`)
 
     appState.intermediateStops = intermediateStops;
 }

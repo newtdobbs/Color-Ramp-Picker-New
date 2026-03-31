@@ -69,21 +69,24 @@
             </arcgis-slider>
             <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
              <div>
-               <calcite-label>Color Change Behavior</calcite-label> 
+              <!-- SWITCH FOR COLOR CHANGE BEHAVIOR -->
+              <calcite-label>Color Change Behavior</calcite-label> 
                <calcite-label layout="inline" slot="footer-end"> 
                  Static
                  <!-- adding a switch with a default value of "discrete" -->
                  <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
                  Responsive
-                </calcite-label>
-                <!-- adding a button to reset the color stops -->
+              </calcite-label>
+
+              <!-- BUTTON FOR SMART MAPPING DEFAULTS -->
                 <calcite-button
-                  label="Reset Stops"
-                  width="full"
-                  round
-                  id="reset-button"
-                  >
-                  Reset Stops
+                label="Default"
+                width="full"
+                round
+                id="reset-button"
+                disabled
+                >
+                Default
               </calcite-button>
               </div>
           </div>
