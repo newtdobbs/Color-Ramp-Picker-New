@@ -90,7 +90,6 @@ const appState = {
     buttons: [], // the buttons for adding stops
     defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
     fieldsList: null, // the full fields list for the service
-    renderer: null,
     sliderActive: false,
     switchValue: "static", // we defualt to static changes
     defaultValues: null, // this should only ever be assigned upon field initialization
@@ -99,6 +98,7 @@ const appState = {
     lastCustomStops: null,
     offsetBase: null,
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
+    inflectionPoints: null, // an array to store inflection values for the current field's distribution
 }
 
 /* 
@@ -127,13 +127,13 @@ const resetButton = document.getElementById("reset-button");
         return;
     }
 
-    if (activeWidget) {
+    if (appState.activeWidget) {
         document.querySelector(`[data-action-id=${appState.activeWidget}]`).active = false;
         document.querySelector(`[data-panel-id=${appState.activeWidget}]`).closed = true;
     }
 
     const nextWidget = target.dataset.actionId;
-    if (nextWidget !== activeWidget) {
+    if (nextWidget !== appState.activeWidget) {
 
 
         document.querySelector(`[data-action-id=${appState.nextWidget}]`).active = true;
@@ -472,6 +472,8 @@ generateButton.addEventListener("click", async () => {
 LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
 */
 async function calculateSkewAndKurtosis() {
+
+    let inflectionValues = []; // empty array to store inflection values
     
     const t0 = performance.now(); // log for debug
     const data = await getAllFeatures(); // wait for all features
@@ -479,7 +481,7 @@ async function calculateSkewAndKurtosis() {
     console.log(`Querying ${appState.stats.count} records took ${Math.floor(t1 - t0)} milliseconds.`); // log for debug
     const values = data.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
 
-    const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)); // filtering out NaN or non-numeric values
+    const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort(); // filtering out NaN or non-numeric values (and sorting for safety)
     const n = cleanValues.length; // the new value count AFTER filters
 
     // third moment
@@ -497,14 +499,35 @@ async function calculateSkewAndKurtosis() {
 
     // then we'll calucalte kurtosis
     var accumulator = incrkurtosis();
-    cleanValues.forEach(v => {
-        if (typeof v === "number" && !isNaN(v)) {
-            accumulator(v);
-        }
-    });
-    const kurtosis = accumulator();
+    let prevDiff = 0;
+    let inflectionPoints = {
+        "minima": [],
+        "maxima": []
+    }
+    let newDiff;
 
-    // console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
+    accumulator(cleanValues[0]); // first we send index 0 value to the kurtosis accumulator
+    // then we loop all values starting at index 1 so we can get get the slope between the 0th and 1st index value
+    for (let i = 1; i < cleanValues.length; i++){ 
+        //  first we send the value at the current index t the kurtosis accumulator
+        accumulator(cleanValues[i]);
+
+        newDiff = cleanValues[i] - cleanValues[i-1]; // slope between the current and previous value
+        if (newDiff > 0 && prevDiff < 0){ // slope goes from negative to positive, MINIMA
+            inflectionPoints["minima"].push(cleanValues[i]) // adding current value to minima array
+        }
+        if (newDiff < 0 && prevDiff > 0){ // slope goes from positive to negative, MAXIMA
+            inflectionPoints["maxima"].push(cleanValues[i]) // adding current value to maxima array
+        }
+        if (newDiff != 0) { // so long as the new difference is non-zero
+            prevDiff = newDiff; // we'll use it to update the previous diff
+        }
+    }
+    appState.inflectionPoints = inflectionPoints;
+    console.log('Inflection points determined as', appState.inflectionPoints) // log for debug
+    
+    const kurtosis = accumulator();
+    console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
 
     // then adding these values to the global app state
     appState.stats.skewness = sampleSkew;
@@ -628,7 +651,7 @@ async function initializeDialogForField() {
         name: "Purple and Green 10"
     });
 
-    console.log('Matching scheme determined as:', matchingScheme)
+    // console.log('Matching scheme determined as:', matchingScheme) log for debug
 
 
     // setting parameters for a continuous renderer
@@ -641,8 +664,7 @@ async function initializeDialogForField() {
     }
     // continuous renderer using the given color scheme
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
-    appState.renderer = rendererResult.renderer;
-    appState.layer.renderer = appState.renderer;
+    appState.layer.renderer = rendererResult.renderer;
     appState.layer.visible = true;
 
     /* 
@@ -713,12 +735,12 @@ async function initializeDialogForField() {
     ]; 
     
     // attaching the proper event listener based on the current value of the switch
-    attachSliderListener(updateSwitch.value);
+    attachSliderListener();
 
     // Switch change handling
     updateSwitch.addEventListener("calciteSwitchChange", () => {
-        updateSwitch.value =  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
-        attachSliderListener(updateSwitch.value); // need to attach the proper listener based on the switch value
+        appState.switchValue = appState.switchValue === "static" ? "responsive" : "static";  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
+        attachSliderListener(); // need to attach the proper listener based on the switch value
     });
 
     // reset button handling
@@ -781,11 +803,21 @@ function hideButtonsOnDrag() {
 // showinng buttons when released
 function showButtonsOnRelease() {
     appState.buttons.forEach(b => {b.style.visibility = 'visible'});
+    
+    // if the slider moves while we were DEFAULT state
+    if (appState.symbologyMode === "Default") {
+        // we've moved away from the SM defaults now entered CUSTOM mode
+        appState.symbologyMode = "Custom";
 
+        // and we need to offer the a return to default mode in the button's label
+        resetButton.textContent = "Default";
+        resetButton.label = "Default";
+   
+    }
 }
 
 // helper functiont to assign the correct event listener based on the input switch's mode
-function attachSliderListener(switchVal) {
+function attachSliderListener() {
     // Remove any existing listeners to avoid duplicates
     sliderElement.removeEventListener("arcgisChange", sliderHandler);
     sliderElement.removeEventListener("arcgisInput", sliderHandler);
@@ -794,7 +826,7 @@ function attachSliderListener(switchVal) {
 
 
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
-    if (switchVal === "static") {
+    if (appState.switchValue === "static") {
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
         sliderElement.addEventListener("arcgisChange", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
@@ -808,7 +840,7 @@ function attachSliderListener(switchVal) {
 
 function sliderHandler() {
     // if a slider moves, we'll provide the option to reset defaults
-    console.log(`Current state of reset is ${resetButton.textContent}`)
+    // console.log(`Current state of reset is ${resetButton.textContent}`) // log for debug
 
     
     appState.sliderValues = [...sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
@@ -820,26 +852,12 @@ function sliderHandler() {
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
     // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
     
-
-    // if the slider moves while we were DEFAULT state
-    if (appState.symbologyMode === "Default") {
-        // we've moved away from the SM defaults now entered CUSTOM mode
-        appState.symbologyMode = "Custom";
-
-        // and we need to offer the a return to default mode in the button's label
-        resetButton.textContent = "Default";
-        resetButton.label = "Default";
-   
-        // if the slider moves while in CUSTOM state we just need to update last custom stops
-    }
-
+    // finally calling updateUI, which should only be using state variables
+    updateUI(); 
+    
     // updating the last custom stops to use the current slider values
     appState.lastCustomValues = [...appState.sliderValues];
     appState.lastCustomStops = [...appState.colorStops];
-    
-    // finally calling updateUI, which should only be using state variables
-    updateUI(); 
-
 }
 
 function updateHistogram(){
@@ -848,7 +866,7 @@ function updateHistogram(){
 
 function updateRenderer() {
 
-    const renderer = appState.renderer.clone(); // clone state renderer not to mess up anything
+    const renderer = appState.layer.renderer.clone(); // clone state renderer not to mess up anything
 
     const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");     // finding the 'color' visual variable by type property
     if (colorVarIndex === -1) {
@@ -859,24 +877,27 @@ function updateRenderer() {
     
     const colorVariable = renderer.visualVariables[colorVarIndex].clone(); // cloning the color variable at its index
 
-    // checking if the number of stops matches the slider thumbs
-    // if the user adds another thumb, there will be a mismatch
+    // if the user adds another thumb, the renderer's color stops and the number of slider thumbs WONT match
     if (colorVariable.stops.length !== appState.sliderValues.length) {
-        console.warn("Stop count mismatch — rebuilding stops array.");
-        // if the number of thumbs does match the number of color stops
-        /* 
-        NEED TO ADD CODE HERE
-        */
+        console.log(`Rebuilding from ${colorVariable.stops.length} to ${appState.sliderValues.length} stops`)
+        // so we'll have to to rebuild the color variable using the color stops in state variable
+        colorVariable.stops = appState.colorStops.map(stop => ({
+            // the appState.colorStops should already have updated color information from the createButton click event listener
+            color: stop.color,
+            value: stop.value
+        }));
+    } else {
+        colorVariable.stops = colorVariable.stops.map((stop, i) => ({
+            ...stop,
+            color: appState.colorStops[i]?.color || [0, 0, 0], // grabbing the colr from the associated color stop break
+            value: appState.sliderValues[i] // grabbing the value from the associated slider element
+        }));
     }
-    colorVariable.stops = colorVariable.stops.map((stop, i) => ({
-        ...stop,
-        color: appState.colorStops[i]?.color || [0, 0, 0], // grabbing the colr from the associated color stop break
-        value: appState.sliderValues[i] // grabbing the value from the associated slider element
-    }));
 
+    console.log('Color variable now has the following stops', colorVariable.stops);
+        
     renderer.visualVariables[colorVarIndex] = colorVariable;
     appState.layer.renderer = renderer; // updating the state variable's renderer
-    appState.renderer = renderer; // updating the state renderer
 }
 
 
