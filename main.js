@@ -98,7 +98,7 @@ const appState = {
     lastCustomValues: null,
     lastCustomStops: null,
     offsetBase: null,
-    symbologyToToggle: "Default",
+    symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
 }
 
 /* 
@@ -572,10 +572,11 @@ function initializeUI(){
     updateSwatch();
     updateButtons();
     buildDescription();
-    console.log('------------ INITIAL UI DEBUG ------------------') // log for debug
-    console.log('Slider stops are', appState.sliderValues)
-    console.log('color stops are', appState.colorStops)
-    console.log('----------------------------------------') // log for debug
+    console.log('------------ INITIAL UI DEBUG ------------------'); // log for debug
+    console.log(`WE DEFAULT TO ${appState.symbologyMode} SYMBOLOGY MODE.`);
+    console.log('Slider stops are', appState.sliderValues);
+    console.log('color stops are', appState.colorStops);
+    console.log('----------------------------------------'); // log for debug
 }
     
 /* 
@@ -588,10 +589,11 @@ function updateUI(){
     // updateDescription();
     updateSwatch();
     updateButtons();
-    console.log('------------ UPDATE UI DEBUG ------------------') // log for debug
-    console.log('Slider stops are', appState.sliderValues)
-    console.log('color stops are', appState.colorStops)
-    console.log('----------------------------------------') // log for debug
+    console.log('------------ UPDATE UI DEBUG ------------------'); // log for debug
+    console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
+    console.log('Slider stops are', appState.sliderValues);
+    console.log('color stops are', appState.colorStops);
+    console.log('----------------------------------------'); // log for debug
 }
 
 async function initializeDialogForField() {
@@ -659,6 +661,7 @@ async function initializeDialogForField() {
         appState.stats.max
     ];
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
+    appState.lastCustomValues = appState.sliderValues; // storing the initial values as custom values since we DON't use SM deafults on first load
     // SMART MAPPING DEFAULTS defaults as min, max, mean, 1sd above and below mean
     appState.defaultValues = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max];
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
@@ -699,6 +702,7 @@ async function initializeDialogForField() {
     
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
+    appState.lastCustomStops = appState.colorStops; // storing initial stops as CUSTOM stops since we DONT use SM defaults on first load
     // SMART MAPPING DEFAULTS
     appState.defaultStops = [
         { color: [129, 0, 230], value: appState.stats.min },
@@ -719,22 +723,20 @@ async function initializeDialogForField() {
 
     // reset button handling
     resetButton.addEventListener("click",  () => {
-        const newVal = appState.symbologyToToggle === "Default" ? "Custom" : "Default"; // determining value for current click
-        console.log(`Changing buttom label FROM ${appState.symbologyToToggle} to ${newVal}`)
-
-        // if we're using custom symbology, we want to TURN ON the default
-        if (appState.symbologyToToggle === "Default") {
-             // Save current custom configuration before overwriting
+        
+        // if we're currently using custom symbology, we want to TURN ON the smart mapping defaults
+        if (appState.symbologyMode === "Custom") {
+            // saving the current custom configuration before overwriting
             appState.lastCustomValues = [...appState.sliderValues];
             appState.lastCustomStops = [...appState.colorStops];
-
-            // Apply defaults
+            
+            // then applying smart mapping defaults
             sliderElement.values = [...appState.defaultValues];
             histogramElement.colorStops = [...appState.defaultStops];
             appState.sliderValues = [...appState.defaultValues];
             appState.colorStops = [...appState.defaultStops];
-
-        // otherwise we're using default symbology, so we want to RESTORE the custom stops before we clicked the reset
+            
+        // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
         } else {
             if (appState.lastCustomValues && appState.lastCustomStops) {
                 sliderElement.values = [...appState.lastCustomValues];
@@ -745,13 +747,17 @@ async function initializeDialogForField() {
                 hf.warnUser("No custom configuration stored to restore.");
             }
         }
-
-        updateUI(); // then we need to updateUI to reflect these changes in the map/histogram
         
-        // then finally we adjust the label of the button
-        resetButton.textContent = newVal;
-        resetButton.label = newVal;
-        appState.symbologyToToggle = newVal; // then reassinging the state variable for successive clicks
+        
+        // we use the 'old' mode (before click) as the new button label 
+        resetButton.textContent = appState.symbologyMode;
+        resetButton.label = appState.symbologyMode;
+        
+        // and we'll switch the mode to the opposite state
+        appState.symbologyMode = appState.symbologyMode === "Default" ? "Custom" : "Default"; // determining value for current click
+        console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${resetButton.label}`)
+
+        updateUI(); // finally we updateUI to reflect these changes in the map/histogram
     })
 
     // then we enable the switch for the user
@@ -804,9 +810,7 @@ function sliderHandler() {
     // if a slider moves, we'll provide the option to reset defaults
     console.log(`Current state of reset is ${resetButton.textContent}`)
 
-    resetButton.textContent === "Default" ? "Custom" : "Default"; 
-    resetButton.label === "Default" ? "Custom" : "Default"; 
-
+    
     appState.sliderValues = [...sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
     
     const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
@@ -815,15 +819,27 @@ function sliderHandler() {
     })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
     // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
+    
 
-    // here we'll update the with the latest custom stops
-    if (appState.symbologyToToggle === "Custom") {
-        appState.lastCustomValues = [...appState.sliderValues];
-        appState.lastCustomStops = [...appState.colorStops];
+    // if the slider moves while we were DEFAULT state
+    if (appState.symbologyMode === "Default") {
+        // we've moved away from the SM defaults now entered CUSTOM mode
+        appState.symbologyMode = "Custom";
+
+        // and we need to offer the a return to default mode in the button's label
+        resetButton.textContent = "Default";
+        resetButton.label = "Default";
+   
+        // if the slider moves while in CUSTOM state we just need to update last custom stops
     }
 
+    // updating the last custom stops to use the current slider values
+    appState.lastCustomValues = [...appState.sliderValues];
+    appState.lastCustomStops = [...appState.colorStops];
+    
     // finally calling updateUI, which should only be using state variables
     updateUI(); 
+
 }
 
 function updateHistogram(){
