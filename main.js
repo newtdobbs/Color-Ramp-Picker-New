@@ -17,9 +17,12 @@ import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
+const StatisticDefinition = await $arcgis.import("@arcgis/core/rest/support/StatisticDefinition.js");
 import * as hf from "./helperFunctions";
 import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
 import { validateAppAccess } from "@esri/arcgis-rest-request";
+const Query = await $arcgis.import("@arcgis/core/rest/support/Query.js");
+
 
 
 /* 
@@ -468,71 +471,7 @@ generateButton.addEventListener("click", async () => {
     }   
 });
 
-/* 
-LOGIC FOR CALCULATING FIELD KURTOSIS, THIS WILL REQUIRE GATHERING ALL RECORDS FROM A FIELD
-*/
-async function calculateSkewAndKurtosis() {
 
-    let inflectionValues = []; // empty array to store inflection values
-    
-    const t0 = performance.now(); // log for debug
-    const data = await getAllFeatures(); // wait for all features
-    const t1 = performance.now(); // log for debug
-    console.log(`Querying ${appState.stats.count} records took ${Math.floor(t1 - t0)} milliseconds.`); // log for debug
-    const values = data.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
-
-    const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort(); // filtering out NaN or non-numeric values (and sorting for safety)
-    const n = cleanValues.length; // the new value count AFTER filters
-
-    // third moment
-    let summedDiffs = 0;
-    cleanValues.forEach(v => {
-        summedDiffs += Math.pow(v - appState.stats.avg, 3);
-    });
-    const thirdMoment = summedDiffs / n;
-
-    // Population skew
-    const populationSkew = thirdMoment / Math.pow(appState.stats.stddev, 3);
-
-    // Bias correction (sample skew)
-    const sampleSkew = populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
-
-    // then we'll calucalte kurtosis
-    var accumulator = incrkurtosis();
-    let prevDiff = 0;
-    let inflectionPoints = {
-        "minima": [],
-        "maxima": []
-    }
-    let newDiff;
-
-    accumulator(cleanValues[0]); // first we send index 0 value to the kurtosis accumulator
-    // then we loop all values starting at index 1 so we can get get the slope between the 0th and 1st index value
-    for (let i = 1; i < cleanValues.length; i++){ 
-        //  first we send the value at the current index t the kurtosis accumulator
-        accumulator(cleanValues[i]);
-
-        newDiff = cleanValues[i] - cleanValues[i-1]; // slope between the current and previous value
-        if (newDiff > 0 && prevDiff < 0){ // slope goes from negative to positive, MINIMA
-            inflectionPoints["minima"].push(cleanValues[i]) // adding current value to minima array
-        }
-        if (newDiff < 0 && prevDiff > 0){ // slope goes from positive to negative, MAXIMA
-            inflectionPoints["maxima"].push(cleanValues[i]) // adding current value to maxima array
-        }
-        if (newDiff != 0) { // so long as the new difference is non-zero
-            prevDiff = newDiff; // we'll use it to update the previous diff
-        }
-    }
-    appState.inflectionPoints = inflectionPoints;
-    console.log('Inflection points determined as', appState.inflectionPoints) // log for debug
-    
-    const kurtosis = accumulator();
-    console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
-
-    // then adding these values to the global app state
-    appState.stats.skewness = sampleSkew;
-    appState.stats.kurtosis = kurtosis;
-}
 
 /* 
 LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
@@ -567,25 +506,22 @@ function buildDescription() {
     }
     
     // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
-    descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating a`);
-    const kurtosisAbs = Math.abs(appState.stats.kurtosis);
-    // if the kurtosis is more severe than 1 in either direction, we'll consider its severity & direction
-    if (kurtosisAbs > 1){ 
-        // severely peaked or flat distributions
-        if(kurtosisAbs > 2){
-            descParts.push("substantially")
-        }
-    // otherwise if its close to zero, we consider it approximately normal
-    } else { 
-        kurtosisSeverity = "an approximately normal";
-    }
-    const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykutic (flat)";
-    
-    descParts.push(`${kurtosisDirection} distribution.`)
+    descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating`);
 
-    descParts.join(" ");
+    const kurtosisAbs = Math.abs(appState.stats.kurtosis);
+
+    if (kurtosisAbs <= 1) {
+        descParts.push("an approximately normal distribution.");
+    } else {
+        let severity = "";
+        if (kurtosisAbs > 2) {
+            severity = "substantially ";
+        }
+        const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykurtic (flat)";
+        descParts.push(`a ${severity}${kurtosisDirection} distribution.`);
+    }
     
-    appState.description = descParts; // assigning it to the state variable
+    appState.description = descParts.join(" "); // assigning it to the state variable
 
 }
 
@@ -622,25 +558,13 @@ function updateUI(){
 async function initializeDialogForField() {
   try {
 
-    /* 
-    FIRST CALCULATING SUMAMRY STATISTICS
-    */
-    // gathering summary statistics from the selected field of the active feature layer
-    appState.stats = await summaryStatistics({
-      layer: appState.layer,
-      field: appState.field.name
-    });
-
-    // console.log("statistics generated from field", stats); // log for debug
-
+    await getAllFeatures();
+    
     // for sparse distributions with low record count, we'll provide a warning and return
     if(appState.stats.count < 20){
         hf.warnUser(`With only ${appState.stats.count} observtaions, for now we'll refrain from calculating statistics`)
         return    
     }
-
-    // inserting skew and kurtosis as additional statistics into the dictionary
-    await calculateSkewAndKurtosis(); 
 
     // creating a renderer for the map
     // grabbing the green-purple color scheme to use in the map
@@ -652,7 +576,6 @@ async function initializeDialogForField() {
     });
 
     // console.log('Matching scheme determined as:', matchingScheme) log for debug
-
 
     // setting parameters for a continuous renderer
     const colorParams = {
@@ -987,19 +910,62 @@ function updateButtons(){
 
 // FUNCTION FOR QUERYING ALL DATA FROM A FIELD
 async function getAllFeatures() {
-  try {
-    console.log("layer parsed URL:", appState.layer.parsedUrl.path); // log for debug
+    try {
+        
+        const t0 = performance.now(); // log for debug
+        const results = await queryAllFeatures({
+            url: appState.layer.parsedUrl.path,
+            outFields: appState.field.name,
+            returnGeometry: false,
+        });
+        const t1 = performance.now(); // log for debug
+        console.log(`Querying all records records took ${Math.floor(t1 - t0)} milliseconds:`, results); // log for debug
+        const values = results.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
+        const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort(); // filtering out NaN or non-numeric values (and sorting for safety)
+        const n = cleanValues.length; // the new value count AFTER filters
 
-    const results = await queryAllFeatures({
-      url: appState.layer.parsedUrl.path,
-      outFields: [appState.field.name] // need to specify the name, as appState.field is a field object
-    });
-    return results;
-  } catch (err) {
-    hf.warnUser(`Error querying all features for field: ${appState.field.name}`);
-    console.error('err', err);
-    return null;
-  }
+        // Assembling the stats dictionary
+        appState.stats = {
+            count: n,
+            min: math.min(cleanValues),
+            median: math.median(cleanValues),
+            avg: math.mean(cleanValues),
+            stddev: math.std(cleanValues),
+            max: math.max(cleanValues),
+        }
+
+        // Calculating skewness
+        // third moment
+        let summedDiffs = 0;
+        cleanValues.forEach(v => {
+            summedDiffs += Math.pow(v - appState.stats.avg, 3);
+        });
+        const thirdMoment = summedDiffs / n;
+
+        // pop skew
+        const populationSkew = thirdMoment / Math.pow(appState.stats.stddev, 3);
+
+        // sample skew using bias correction
+        const sampleSkew = populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
+
+        var accumulator = incrkurtosis();
+        for (let i = 0; i < cleanValues.length; i++){ 
+            accumulator(cleanValues[i]);
+        }
+        const kurtosis = accumulator();
+        console.log(`Skew ${sampleSkew} and kurtosis ${kurtosis} off the press`) // log for debug
+   
+        // then adding these values to the global app state
+        appState.stats.skewness = sampleSkew;
+        appState.stats.kurtosis = kurtosis;
+
+        console.log('App stats is', appState.stats)
+
+    } catch (err) {
+        hf.warnUser(`Error querying all features for field:`, );
+        console.error('err', err);
+        return null;
+    }
 }
 
 function calculateIntermediateStops(){

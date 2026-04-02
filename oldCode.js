@@ -556,3 +556,14 @@ function determineSliderChanges(oldValues, newValues) {
     return [oldSliderIndex, oldSliderValue, newSliderIndex, newSliderValue];
 
 }
+
+// newDiff = cleanValues[i] - cleanValues[i-1]; // slope between the current and previous value
+// if (newDiff > 0 && prevDiff < 0){ // slope goes from negative to positive, MINIMA
+//     inflectionPoints["minima"].push(cleanValues[i]) // adding current value to minima array
+// }
+// if (newDiff < 0 && prevDiff > 0){ // slope goes from positive to negative, MAXIMA
+//     inflectionPoints["maxima"].push(cleanValues[i]) // adding current value to maxima array
+// }
+// if (newDiff != 0) { // so long as the new difference is non-zero
+//     prevDiff = newDiff; // we'll use it to update the previous diff
+// }
