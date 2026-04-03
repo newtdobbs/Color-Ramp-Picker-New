@@ -594,10 +594,12 @@ async function initializeDialogForField() {
     INITIALIZING THE SLIDER 
     */
     // grabbing the slider element & using the stats to adjust it
-    sliderElement.min = appState.stats.min;
-    sliderElement.max = appState.stats.max;
-    calculateIntermediateStops();
+    calculateStops();
+    // sliderElement.min = appState.stats.min;
+    // sliderElement.max = appState.stats.max;
+
     // 5 stop slider
+    sliderElement.values = appState.sliderValues; // we'll pull from state values which we calcualte in 
     sliderElement.values = [
         appState.stats.min,
         appState.intermediateStops[0],
@@ -921,8 +923,32 @@ async function getAllFeatures() {
         const t1 = performance.now(); // log for debug
         console.log(`Querying all records records took ${Math.floor(t1 - t0)} milliseconds:`, results); // log for debug
         const values = results.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
-        const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort(); // filtering out NaN or non-numeric values (and sorting for safety)
+        const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)); // filtering out NaN or non-numeric values 
         const n = cleanValues.length; // the new value count AFTER filters
+
+
+        // filtering outliers
+        
+
+        // let q1, q3, iqr,  maxNonOutlierValue, minNonOutlierValue, lowOutliers, highOutliers;
+
+        // values = cleanValues.slice().sort( (a, b) => a - b);//copy array fast and sort
+
+        // if((n / 4) % 1 === 0){//find quartiles
+        //     q1 = 1/2 * (values[(n / 4)] + values[(n / 4) + 1]);
+        //     q3 = 1/2 * (values[(n * (3 / 4))] + values[(n * (3 / 4)) + 1]);
+        // } else {
+        //     q1 = values[Math.floor(n / 4 + 1)];
+        //     q3 = values[Math.ceil(n * (3 / 4) + 1)];
+        // }
+
+        // iqr = q3 - q1;
+        // maxValue = q3 + iqr * 1.5;
+        // minValue = q1 - iqr * 1.5;
+
+
+        // // filtering outliers
+        // console.log('Clean values (should be sorted):', cleanValues);
 
         // Assembling the stats dictionary
         appState.stats = {
@@ -968,7 +994,30 @@ async function getAllFeatures() {
     }
 }
 
-function calculateIntermediateStops(){
+/* 
+function to calculate all stops (except for mean)
+*/
+function calculateStops(){
+
+    // const lowOutliers = [] // outliers below mean
+    // const highOutliers = [] // oitliers above mean
+    // // first determining outliers for min & max
+    // let firstStop;
+    // let lastStop;
+    // if (lowOutliers){
+    //     firstStop = math.max(lowOutliers); // if there are low outliers we'll use the greatest (closest to mean)
+    // } else { // otherwise we'll use the minimum
+    //     firstStop = appState.stats.min;
+    // }
+    // if(highOutliers) {  
+    //     lastStop = math.min(highOutliers); // if there are high outliers we'll use the smallest (closest to the mean)
+    // } else { // otherwise we'll use the maximum
+    //     lastStop = appState.stats.max;
+    // }
+
+
+
+
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
     // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
@@ -985,8 +1034,10 @@ function calculateIntermediateStops(){
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
 
+
     const intermediateStops = [appState.stats.avg - leftOffset, appState.stats.avg + rightOffset];
     // console.log(`With a mean of ${appState.stats.avg}, the intermediate stops have been calculated as ${intermediateStops}`)
 
     appState.intermediateStops = intermediateStops;
+
 }
