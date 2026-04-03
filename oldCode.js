@@ -567,3 +567,22 @@ function determineSliderChanges(oldValues, newValues) {
 // if (newDiff != 0) { // so long as the new difference is non-zero
 //     prevDiff = newDiff; // we'll use it to update the previous diff
 // }
+
+        // filtering outliers
+        
+
+        // let q1, q3, iqr,  maxNonOutlierValue, minNonOutlierValue, lowOutliers, highOutliers;
+
+        // values = cleanValues.slice().sort( (a, b) => a - b);//copy array fast and sort
+
+        // if((n / 4) % 1 === 0){//find quartiles
+        //     q1 = 1/2 * (values[(n / 4)] + values[(n / 4) + 1]);
+        //     q3 = 1/2 * (values[(n * (3 / 4))] + values[(n * (3 / 4)) + 1]);
+        // } else {
+        //     q1 = values[Math.floor(n / 4 + 1)];
+        //     q3 = values[Math.ceil(n * (3 / 4) + 1)];
+        // }
+
+        // iqr = q3 - q1;
+        // maxValue = q3 + iqr * 1.5;
+        // minValue = q1 - iqr * 1.5;

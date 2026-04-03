@@ -585,6 +585,14 @@ async function initializeDialogForField() {
         theme: "above-and-below",
         colorScheme: matchingScheme
     }
+    // an array of the rgb stops for our purple-green color ramp, will make assigning stops easier later
+    const colorSchemeStops = [
+        [129, 0, 230], // purple
+        [179, 96, 209], // light purple
+        [242, 207, 158], // tan
+        [110, 184, 48], // light green
+        [43, 153, 0], // green
+    ]
     // continuous renderer using the given color scheme
     const rendererResult = await colorRendererCreator.createContinuousRenderer(colorParams);
     appState.layer.renderer = rendererResult.renderer;
@@ -594,23 +602,27 @@ async function initializeDialogForField() {
     INITIALIZING THE SLIDER 
     */
     // grabbing the slider element & using the stats to adjust it
-    calculateStops();
-    // sliderElement.min = appState.stats.min;
-    // sliderElement.max = appState.stats.max;
+    calculateStops(); // calculating stops which will be stored in the state variable
+    sliderElement.min = appState.stats.min; // slider range will go all the way to min to show full spread of values
+    sliderElement.max = appState.stats.max; // slider range will go all the way to max to show full spread of values
+    console.log(`slider element is within the range of ${sliderElement.min} to ${sliderElement.max}`)
+
+
 
     // 5 stop slider
     sliderElement.values = appState.sliderValues; // we'll pull from state values which we calcualte in 
-    sliderElement.values = [
-        appState.stats.min,
-        appState.intermediateStops[0],
-        appState.stats.avg,
-        appState.intermediateStops[1],
-        appState.stats.max
-    ];
     appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
     appState.lastCustomValues = appState.sliderValues; // storing the initial values as custom values since we DON't use SM deafults on first load
-    // SMART MAPPING DEFAULTS defaults as min, max, mean, 1sd above and below mean
-    appState.defaultValues = [appState.stats.min, appState.stats.avg - appState.stats.stddev, appState.stats.avg, appState.stats.avg + appState.stats.stddev, appState.stats.max];
+    
+    // SMART MAPPING DEFAULTS defaults as -1sd, midpoint of -1sd and mean, mean, midpoint of 1sd and mean, and 1sd
+    appState.defaultValues = [
+        appState.stats.avg - appState.stats.stddev, // default slider value 1 is 1 sd below mean 
+        appState.stats.avg - appState.stats.stddev / 2, // default slider value 2 is at the mipoint between the mean and 1sd below mean
+        appState.stats.avg, // default slider value 3 is at the mean
+        appState.stats.avg + appState.stats.stddev / 2, // default slider value 4 is at the midpoint between the mean and 1 sd above the mean
+        appState.stats.avg + appState.stats.stddev // default slider value 5 is at 1 sd above mean
+    ]
+
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
     sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
     sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
@@ -637,26 +649,24 @@ async function initializeDialogForField() {
     histogramElement.max = histogramResult.maxValue;
     histogramElement.bins = histogramResult.bins;
     
-    // ACTUAL HISTOGRAM COLORSTOPS
+
+    // assigning histogram color stops using the respective slider element value
     // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
-    histogramElement.colorStops = [
-        { color: [129, 0, 230], value: appState.stats.min },
-        { color: [179, 96, 209], value: appState.intermediateStops[0] },
-        { color: [242, 207, 158], value: appState.stats.avg },
-        { color: [110, 184, 48], value: appState.intermediateStops[1] },
-        { color: [43, 153, 0], value: appState.stats.max }
-    ];
-    
+    histogramElement.colorStops = colorSchemeStops.map((color, index) => ({
+        color,
+        value: appState.sliderValues[index]
+    }));
+
     histogramElement.colorBlendingEnabled = true;
     appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
     appState.lastCustomStops = appState.colorStops; // storing initial stops as CUSTOM stops since we DONT use SM defaults on first load
     // SMART MAPPING DEFAULTS
     appState.defaultStops = [
-        { color: [129, 0, 230], value: appState.stats.min },
-        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev },
+        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev },
+        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev / 2 },
         { color: [242, 207, 158], value: appState.stats.avg },
-        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev },
-        { color: [43, 153, 0], value: appState.stats.max }
+        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev / 2 },
+        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
     ]; 
     
     // attaching the proper event listener based on the current value of the switch
@@ -923,32 +933,8 @@ async function getAllFeatures() {
         const t1 = performance.now(); // log for debug
         console.log(`Querying all records records took ${Math.floor(t1 - t0)} milliseconds:`, results); // log for debug
         const values = results.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
-        const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)); // filtering out NaN or non-numeric values 
+        const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort((a, b) => a - b); // filtering out NaN or non-numeric values (and sorting ascending)
         const n = cleanValues.length; // the new value count AFTER filters
-
-
-        // filtering outliers
-        
-
-        // let q1, q3, iqr,  maxNonOutlierValue, minNonOutlierValue, lowOutliers, highOutliers;
-
-        // values = cleanValues.slice().sort( (a, b) => a - b);//copy array fast and sort
-
-        // if((n / 4) % 1 === 0){//find quartiles
-        //     q1 = 1/2 * (values[(n / 4)] + values[(n / 4) + 1]);
-        //     q3 = 1/2 * (values[(n * (3 / 4))] + values[(n * (3 / 4)) + 1]);
-        // } else {
-        //     q1 = values[Math.floor(n / 4 + 1)];
-        //     q3 = values[Math.ceil(n * (3 / 4) + 1)];
-        // }
-
-        // iqr = q3 - q1;
-        // maxValue = q3 + iqr * 1.5;
-        // minValue = q1 - iqr * 1.5;
-
-
-        // // filtering outliers
-        // console.log('Clean values (should be sorted):', cleanValues);
 
         // Assembling the stats dictionary
         appState.stats = {
@@ -959,6 +945,8 @@ async function getAllFeatures() {
             stddev: math.std(cleanValues),
             max: math.max(cleanValues),
         }
+
+        console.log('appState.stats is currently', appState.stats); 
 
         // Calculating skewness
         // third moment
@@ -995,28 +983,9 @@ async function getAllFeatures() {
 }
 
 /* 
-function to calculate all stops (except for mean)
+function to calculate all stops when a field is first selected
 */
 function calculateStops(){
-
-    // const lowOutliers = [] // outliers below mean
-    // const highOutliers = [] // oitliers above mean
-    // // first determining outliers for min & max
-    // let firstStop;
-    // let lastStop;
-    // if (lowOutliers){
-    //     firstStop = math.max(lowOutliers); // if there are low outliers we'll use the greatest (closest to mean)
-    // } else { // otherwise we'll use the minimum
-    //     firstStop = appState.stats.min;
-    // }
-    // if(highOutliers) {  
-    //     lastStop = math.min(highOutliers); // if there are high outliers we'll use the smallest (closest to the mean)
-    // } else { // otherwise we'll use the maximum
-    //     lastStop = appState.stats.max;
-    // }
-
-
-
 
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
@@ -1035,9 +1004,12 @@ function calculateStops(){
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
 
 
-    const intermediateStops = [appState.stats.avg - leftOffset, appState.stats.avg + rightOffset];
-    // console.log(`With a mean of ${appState.stats.avg}, the intermediate stops have been calculated as ${intermediateStops}`)
-
-    appState.intermediateStops = intermediateStops;
-
+    appState.sliderValues = [
+        appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
+        appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
+        appState.stats.avg, // slider value 3 is at the mean
+        appState.stats.avg + rightOffset, // slider value 4 is aat the right offset above the mean
+        appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
+    ]
+    console.log('appState.sliderValues are currently', appState.sliderValues);
 }
