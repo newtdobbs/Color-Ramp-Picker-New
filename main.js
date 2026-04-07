@@ -938,10 +938,10 @@ async function getAllFeatures() {
         appState.stats = {
             count: n,
             min: math.min(cleanValues),
-            median: math.median(cleanValues),
-            avg: math.mean(cleanValues),
-            stddev: math.std(cleanValues),
             max: math.max(cleanValues),
+            avg: math.mean(cleanValues),
+            median: math.median(cleanValues),
+            stddev: math.std(cleanValues),
             lowOutliers: [],
             highOutliers:[],
         }
@@ -973,28 +973,20 @@ async function getAllFeatures() {
         appState.stats.skewness = sampleSkew;
         appState.stats.kurtosis = kurtosis;
 
-        // OUTLIERS
-        function getQuantile(sortedArr, q) {
-            const pos = (sortedArr.length - 1) * q;
-            const base = Math.floor(pos);
-            const rest = pos - base;
-            if ((sortedArr[base + 1] !== undefined)) {
-                return sortedArr[base] + rest * (sortedArr[base + 1] - sortedArr[base]);
-            } else {
-                return sortedArr[base];
-            }
-        }
-        const q1 = getQuantile(cleanValues, 0.25);
-        const q3 = getQuantile(cleanValues, 0.75);
+        const sorted = cleanValues.slice().sort((a, b) => a - b);
+        const q1 = sorted[Math.floor((sorted.length / 4))];
+        console.log(`Q1 has been determined as ${q1}`)
+    
+        const q3 = sorted[Math.ceil((sorted.length * (3 / 4))) - 1];
+        console.log(`Q3 has been determined as ${q3}`)
+    
         const iqr = q3 - q1;
-        const minCutoff = math.max(0, q1 - 1.5 * iqr); // clamping at 0
-        const maxCutoff = q3 + 1.5 * iqr;
 
-        console.log("LOW CUTOFF", minCutoff);
-        console.log("MAX CUTOFF", maxCutoff);
+        const lowCutoff = math.min(q1 - 1.5 * iqr, 0); // clamping it at 0, as we can't have negatives
+        const highCutoff = q3 + 1.5 * iqr;
 
-        appState.stats.lowOutliers = cleanValues.filter(v => v < minCutoff);
-        appState.stats.highOutliers = cleanValues.filter(v => v > maxCutoff);
+        appState.stats.lowOutliers = sorted.filter(v => v < lowCutoff);
+        appState.stats.highOutliers = sorted.filter(v => v > highCutoff);
 
 
         console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
@@ -1007,6 +999,17 @@ async function getAllFeatures() {
         return null;
     }
 }
+
+// function getOutliers(arr) {
+
+
+
+
+//     const lowerCutoff = q1 - 1.5 * iqr;
+//     const higherCutoff = q3 + 1.5 * iqr;
+
+//     // return arr.filter(x => x < min || x > max);
+// }
 
 /* 
 function to calculate all stops when a field is first selected
