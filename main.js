@@ -855,8 +855,6 @@ function createButton(buttonValue){
     button.scale = "s";
     button.appearance = "outline";
 
-
-    
     // event listener for hover
     button.addEventListener("mouseenter", (event) => {
         event.target.style.backgroundColor = "white"; //
@@ -944,9 +942,11 @@ async function getAllFeatures() {
             avg: math.mean(cleanValues),
             stddev: math.std(cleanValues),
             max: math.max(cleanValues),
+            lowOutliers: [],
+            highOutliers:[],
         }
 
-        console.log('appState.stats is currently', appState.stats); 
+        console.log('appState.stats is currently', appState.stats); // log for debug
 
         // Calculating skewness
         // third moment
@@ -973,7 +973,33 @@ async function getAllFeatures() {
         appState.stats.skewness = sampleSkew;
         appState.stats.kurtosis = kurtosis;
 
-        console.log('App stats is', appState.stats)
+        // OUTLIERS
+        function getQuantile(sortedArr, q) {
+            const pos = (sortedArr.length - 1) * q;
+            const base = Math.floor(pos);
+            const rest = pos - base;
+            if ((sortedArr[base + 1] !== undefined)) {
+                return sortedArr[base] + rest * (sortedArr[base + 1] - sortedArr[base]);
+            } else {
+                return sortedArr[base];
+            }
+        }
+        const q1 = getQuantile(cleanValues, 0.25);
+        const q3 = getQuantile(cleanValues, 0.75);
+        const iqr = q3 - q1;
+        const minCutoff = math.max(0, q1 - 1.5 * iqr); // clamping at 0
+        const maxCutoff = q3 + 1.5 * iqr;
+
+        console.log("LOW CUTOFF", minCutoff);
+        console.log("MAX CUTOFF", maxCutoff);
+
+        appState.stats.lowOutliers = cleanValues.filter(v => v < minCutoff);
+        appState.stats.highOutliers = cleanValues.filter(v => v > maxCutoff);
+
+
+        console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
+
+        console.log('App stats is', appState.stats) // log for debug
 
     } catch (err) {
         hf.warnUser(`Error querying all features for field:`, );
