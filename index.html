@@ -68,18 +68,18 @@
               <div id="color-swatch" slot="content-end" ></div>
             </arcgis-slider>
             <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
-             <div>
+            <div id="right-buttons-panel">
               <!-- SWITCH FOR COLOR CHANGE BEHAVIOR -->
               <calcite-label>Color Change Behavior</calcite-label> 
-               <calcite-label layout="inline" slot="footer-end"> 
-                 Static
-                 <!-- adding a switch with a default value of "discrete" -->
-                 <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
-                 Responsive
+              <calcite-label layout="inline" slot="footer-end"> 
+                Static
+                <!-- adding a switch with a default value of "discrete" -->
+                <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
+                Responsive
               </calcite-label>
-
+              
               <!-- BUTTON FOR SMART MAPPING DEFAULTS -->
-                <calcite-button
+              <calcite-button
                 label="Default"
                 width="full"
                 round
@@ -88,8 +88,20 @@
                 >
                 Default
               </calcite-button>
-              </div>
+              <calcite-label> <!-- EMPTY LABEL FOR SPACING --> </calcite-label>
+              <calcite-button
+                label="Default"
+                width="full"
+                round
+                id="copy-json"
+                disabled
+                >
+                Copy JSON
+              </calcite-button>
+
+            </div>
           </div>
+
           <div id="dialog-description" slot="footer"></div>
         </calcite-dialog>
     </calcite-shell>

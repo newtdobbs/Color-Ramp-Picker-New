@@ -101,6 +101,7 @@ const appState = {
     lastCustomStops: null,
     offsetBase: null,
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
+    showOutliers: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
 }
 
@@ -122,6 +123,8 @@ const swatch = document.getElementById("color-swatch");
 const histogramElement = document.getElementById("histogram");
 const updateSwitch = document.getElementById("update-switch");
 const resetButton = document.getElementById("reset-button");
+const buttonsPanel = document.getElementById("right-buttons-panel");
+const jsonCopy = document.getElementById("copy-json");
 
  const handleActionBarClick = ({ target }) => {
 
@@ -485,8 +488,8 @@ function buildDescription() {
         `${appState.field.alias} has a value range of ${hf.DecimalPrecision2.round(appState.stats.min, 2).toLocaleString()} to ${hf.DecimalPrecision2.round(appState.stats.max, 2).toLocaleString()}, with a mean of ${hf.DecimalPrecision2.round(appState.stats.avg, 2).toLocaleString()} and a median of ${hf.DecimalPrecision2.round(appState.stats.median, 2).toLocaleString()}. With a skewness of ${hf.DecimalPrecision2.round(appState.stats.skewness, 2).toLocaleString()}, the distribution shows`
     ); 
 
-    // Skew severity & direction
-    
+
+    // SKEW    
     const skewAbs = Math.abs(appState.stats.skewness);
     if (skewAbs > 0.25) {
         let skewSeverity;
@@ -506,10 +509,10 @@ function buildDescription() {
     }
     
     // console.log(`For ${appState.field.name}, kurtosis has been calculated as ${appState.stats.kurtosis}`) // log for debug
+
+    // KURTOSIS
     descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating`);
-
     const kurtosisAbs = Math.abs(appState.stats.kurtosis);
-
     if (kurtosisAbs <= 1) {
         descParts.push("an approximately normal distribution.");
     } else {
@@ -520,7 +523,17 @@ function buildDescription() {
         const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykurtic (flat)";
         descParts.push(`a ${severity}${kurtosisDirection} distribution.`);
     }
-    
+
+    // OUTLIERS
+    if (math.abs(appState.stats.skewness) >  5) {
+
+
+        if(appState.stats.highOutliers.length > 0 || appState.stats.lowOutliers.length > 0){ // for high skew we'll encourage the user to hide outliers
+            descParts.push(`There are ${appState.stats.lowOutliers.length + appState.stats.highOutliers.length} outliers within the dataset, consider using the 'Filter Outliers' button to mask outliers from the map's symbology`);
+        }
+    } 
+
+    // PUTTING IT ALL TOGETHER    
     appState.description = descParts.join(" "); // assigning it to the state variable
 
 }
@@ -606,8 +619,6 @@ async function initializeDialogForField() {
     sliderElement.min = appState.stats.min; // slider range will go all the way to min to show full spread of values
     sliderElement.max = appState.stats.max; // slider range will go all the way to max to show full spread of values
     console.log(`slider element is within the range of ${sliderElement.min} to ${sliderElement.max}`)
-
-
 
     // 5 stop slider
     sliderElement.values = appState.sliderValues; // we'll pull from state values which we calcualte in 
@@ -720,6 +731,7 @@ async function initializeDialogForField() {
     // then we enable the switch for the user
     updateSwitch.disabled = false;
     resetButton.disabled = false;
+    jsonCopy.disabled = false;
     
     // we have to call this function as even though updateUI() is within sliderHandler
     // its not actually called when the app is initialized, we merely add an event listener for it    
@@ -988,8 +1000,13 @@ async function getAllFeatures() {
         appState.stats.lowOutliers = sorted.filter(v => v < lowCutoff);
         appState.stats.highOutliers = sorted.filter(v => v > highCutoff);
 
-
         console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
+
+        if(Math.abs(appState.stats.skewness) > 5){
+            createOutliersButton()
+        }
+
+
 
         console.log('App stats is', appState.stats) // log for debug
 
@@ -1000,22 +1017,49 @@ async function getAllFeatures() {
     }
 }
 
-// function getOutliers(arr) {
+function createOutliersButton(){
+    const outlierToggle = document.createElement('calcite-button'); 
+    outlierToggle.label = "Hide Outliers";
+    outlierToggle.kind = "danger";
+    outlierToggle.round = true;
+    outlierToggle.width = "full";
+    outlierToggle.id = "outlier-toggle"
+    outlierToggle.textContent = "Hide Outliers";
 
 
+    outlierToggle.addEventListener("click",  () => {
+        
+        // if we're currently showing outliers, we want to hide them
+        // if (appState.showOutliers) {
 
+            // hideOutliers();
+                
+        // otherwise we're hiding outliers, so we want to restore them
+        // } else {
 
-//     const lowerCutoff = q1 - 1.5 * iqr;
-//     const higherCutoff = q3 + 1.5 * iqr;
-
-//     // return arr.filter(x => x < min || x > max);
-// }
+            // showOutliers();
+        // }
+            
+            
+        // we use the 'old' mode (before click) as the new button label 
+        outlierToggle.textContent = appState.showOutliers;
+        outlierToggle.label = appState.showOutliers;
+        
+        // and we'll switch the mode to the opposite state
+        appState.showOutliers = appState.showOutliers === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers"; // determining value for current click
+        console.log(`Changed buttom label FROM ${appState.showOutliers} to ${outlierToggle.label}`)
+    })
+    
+    
+    buttonsPanel.appendChild(outlierToggle);
+}
 
 /* 
 function to calculate all stops when a field is first selected
 */
 function calculateStops(){
-
+    
+    
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
     // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
@@ -1027,12 +1071,12 @@ function calculateStops(){
     // console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
     const leftSkewFactor = 1 - (0.2 * s);
     const rightSkewFactor = 1 + (0.2 * s);
-
+    
     const leftOffset = appState.stats.stddev * kScale * leftSkewFactor
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
-
-
+    
+    
     appState.sliderValues = [
         appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
         appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
@@ -1040,5 +1084,29 @@ function calculateStops(){
         appState.stats.avg + rightOffset, // slider value 4 is aat the right offset above the mean
         appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
     ]
-    console.log('appState.sliderValues are currently', appState.sliderValues);
+
+
+    console.log('appState.sliderValues are currently', appState.sliderValues); // log for debug
 }
+
+// function to export the color ramp's current configuration as JSON
+jsonCopy.addEventListener("click", () => {
+    // allJSON["operationalLayers"]["layerDefinition"]["drawingInfo"]["renderer"]["visualVariables"]
+
+    const allStopsJSON = [];
+    appState.colorStops.forEach((currentStop, index)=> {
+        const currentStopJSON = JSON.stringify({
+            color :  [...currentStop.color, 255], 
+            label: "",
+            value: currentStop.value
+        });
+        allStopsJSON.push(currentStopJSON);
+    })
+    // copying the color ramp's json to the clipboard
+    try { 
+        navigator.clipboard.writeText(allStopsJSON);
+        console.log("JSON for color ramp copied to clipboard:", allStopsJSON)
+    } catch (err) {
+        console.error('Failed to copy JSON with error: ', err);
+    }
+});

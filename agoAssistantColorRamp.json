@@ -1,0 +1,1019 @@
+{
+    "operationalLayers": [
+        {
+            "id": "19d651ad2d6-layer-4",
+            "title": "County",
+            "url": "https://P3ePLMYs2RVChkJx.svcs.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/ACS_Median_Household_Income_View_Boundaries/FeatureServer/1",
+            "itemId": "c9faa265b82848498bc0a8390c0afa65",
+            "layerType": "ArcGISFeatureLayer",
+            "layerDefinition": {
+                "fieldConfigurations": [
+                    {
+                        "name": "ALAND",
+                        "fieldFormat": {
+                            "type": "number",
+                            "minimumFractionDigits": 2,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "AWATER",
+                        "fieldFormat": {
+                            "type": "number",
+                            "minimumFractionDigits": 2,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_002E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_002M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_003E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_003M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_004E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_004M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_005E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19049_005M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013B_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013B_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013C_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013C_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013D_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013D_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013E_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013E_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013F_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013F_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013G_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013G_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013H_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013H_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013I_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19013I_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_001E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_001M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_002E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_002M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_003E",
+                        "fieldFormat": {
+                            "type": "number",
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_003M",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 0,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_calc_pctSelfempE",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 1,
+                            "minimumFractionDigits": 1,
+                            "useGrouping": "always"
+                        }
+                    },
+                    {
+                        "name": "B19053_calc_pctSelfempM",
+                        "fieldFormat": {
+                            "type": "number",
+                            "maximumFractionDigits": 1,
+                            "minimumFractionDigits": 1,
+                            "useGrouping": "always"
+                        }
+                    }
+                ],
+                "drawingInfo": {
+                    "renderer": {
+                        "authoringInfo": {
+                            "visualVariables": [
+                                {
+                                    "maxSliderValue": 542590,
+                                    "minSliderValue": 0,
+                                    "theme": "above-and-below",
+                                    "type": "colorInfo"
+                                }
+                            ]
+                        },
+                        "type": "classBreaks",
+                        "visualVariables": [
+                            {
+                                "type": "colorInfo",
+                                "field": "B19053_002E",
+                                "stops": [
+                                    {
+                                        "color": [
+                                            129,
+                                            0,
+                                            230,
+                                            255
+                                        ],
+                                        "label": "",
+                                        "value": 0
+                                    },
+                                    {
+                                        "color": [
+                                            179,
+                                            96,
+                                            209,
+                                            255
+                                        ],
+                                        "label": "",
+                                        "value": 2235
+                                    },
+                                    {
+                                        "color": [
+                                            242,
+                                            207,
+                                            158,
+                                            255
+                                        ],
+                                        "label": "",
+                                        "value": 4470
+                                    },
+                                    {
+                                        "color": [
+                                            110,
+                                            184,
+                                            48,
+                                            255
+                                        ],
+                                        "label": "",
+                                        "value": 5419
+                                    },
+                                    {
+                                        "color": [
+                                            43,
+                                            153,
+                                            0,
+                                            255
+                                        ],
+                                        "label": "",
+                                        "value": 6367
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "sizeInfo",
+                                "valueExpression": "$view.scale",
+                                "stops": [
+                                    {
+                                        "size": 2,
+                                        "value": 1194775
+                                    },
+                                    {
+                                        "size": 1,
+                                        "value": 3733671
+                                    },
+                                    {
+                                        "size": 0.5,
+                                        "value": 14934685
+                                    },
+                                    {
+                                        "size": 0,
+                                        "value": 29869371
+                                    }
+                                ],
+                                "target": "outline"
+                            }
+                        ],
+                        "classBreakInfos": [
+                            {
+                                "classMaxValue": 9007199254740991,
+                                "symbol": {
+                                    "type": "esriSFS",
+                                    "color": [
+                                        170,
+                                        170,
+                                        170,
+                                        255
+                                    ],
+                                    "outline": {
+                                        "type": "esriSLS",
+                                        "color": [
+                                            153,
+                                            153,
+                                            153,
+                                            64
+                                        ],
+                                        "width": 0,
+                                        "style": "esriSLSSolid"
+                                    },
+                                    "style": "esriSFSSolid"
+                                }
+                            }
+                        ],
+                        "field": "B19053_002E",
+                        "minValue": -9007199254740991
+                    }
+                }
+            },
+            "popupInfo": {
+                "popupElements": [
+                    {
+                        "type": "text",
+                        "text": "The median household income in this area is estimated to be <b>${B19049_001E} </b>(±${B19049_001M})."
+                    },
+                    {
+                        "type": "media",
+                        "description": "",
+                        "mediaInfos": [
+                            {
+                                "caption": "Median household income by householder age",
+                                "title": "",
+                                "type": "columnchart",
+                                "value": {
+                                    "fields": [
+                                        "B19049_002E",
+                                        "B19049_003E",
+                                        "B19049_004E",
+                                        "B19049_005E"
+                                    ]
+                                }
+                            },
+                            {
+                                "caption": "Median household income by race",
+                                "title": "",
+                                "type": "columnchart",
+                                "value": {
+                                    "fields": [
+                                        "B19013B_001E",
+                                        "B19013C_001E",
+                                        "B19013D_001E",
+                                        "B19013E_001E",
+                                        "B19013F_001E",
+                                        "B19013G_001E",
+                                        "B19013H_001E",
+                                        "B19013I_001E"
+                                    ]
+                                }
+                            }
+                        ],
+                        "title": ""
+                    },
+                    {
+                        "type": "text",
+                        "text": "<p><span style='font-size:12px;'><i>Source: U.S. Census Bureau's American Community Survey (ACS) {expression/expr0} 5-year estimates</i></span></p>"
+                    }
+                ],
+                "description": "The median household income in this area is estimated to be <b>${B19049_001E} </b>(±${B19049_001M}).",
+                "mediaInfos": [
+                    {
+                        "caption": "Median household income by householder age",
+                        "title": "",
+                        "type": "columnchart",
+                        "value": {
+                            "fields": [
+                                "B19049_002E",
+                                "B19049_003E",
+                                "B19049_004E",
+                                "B19049_005E"
+                            ]
+                        }
+                    },
+                    {
+                        "caption": "Median household income by race",
+                        "title": "",
+                        "type": "columnchart",
+                        "value": {
+                            "fields": [
+                                "B19013B_001E",
+                                "B19013C_001E",
+                                "B19013D_001E",
+                                "B19013E_001E",
+                                "B19013F_001E",
+                                "B19013G_001E",
+                                "B19013H_001E",
+                                "B19013I_001E"
+                            ]
+                        }
+                    }
+                ],
+                "expressionInfos": [
+                    {
+                        "name": "expr0",
+                        "title": "Vintage",
+                        "expression": "var flayerID = \"MINC\"\nvar vintageTable = FeatureSetByPortalItem(Portal('https://www.arcgis.com'), 'c3a5d111b1374f39a83d2280d472bd18',0,['featureLayerID','view_vintage'],false)\n//return vintageTable\nvar match = first(filter(vintageTable, 'featureLayerID LIKE @flayerID'))\nreturn match.view_vintage",
+                        "returnType": "string"
+                    }
+                ],
+                "fieldInfos": [
+                    {
+                        "fieldName": "OBJECTID",
+                        "isEditable": false,
+                        "label": "Object ID",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "COUNTYNS",
+                        "isEditable": true,
+                        "label": "County GNIS Code",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "GEOID",
+                        "isEditable": true,
+                        "label": "Geographic Identifier - FIPS Code",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "ALAND",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 2
+                        },
+                        "isEditable": true,
+                        "label": "Area of Land (Square Meters)",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "AWATER",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 2
+                        },
+                        "isEditable": true,
+                        "label": "Area of Water (Square Meters)",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "NAME",
+                        "isEditable": true,
+                        "label": "County Name",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "State",
+                        "isEditable": true,
+                        "label": "State Name",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months (inflation-adjusted dollars to last year of 5-year range)",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months (inflation-adjusted dollars to last year of 5-year range) - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_002E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder under 25 years",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_002M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder under 25 years - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_003E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 25 to 44 years",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_003M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 25 to 44 years - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_004E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 45 to 64 years",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_004M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 45 to 64 years - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_005E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 65 years and over",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19049_005M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Householder 65 years and over - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013B_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Black or African American Alone Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013B_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Black or African American Alone Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013C_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, American Indian and Alaska Native Alone Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013C_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, American Indian and Alaska Native Alone Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013D_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Asian Alone Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013D_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Asian Alone Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013E_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Native Hawaiian and Other Pacific Islander Alone Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013E_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Native Hawaiian and Other Pacific Islander Alone Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013F_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Some Other Race Alone Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013F_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Some Other Race Alone Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013G_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Two or More Races Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013G_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Two or More Races Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013H_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, White alone, not Hispanic Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013H_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, White alone, not Hispanic Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013I_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Hispanic or Latino Householder",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19013I_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Median Household Income in past 12 months, Hispanic or Latino Householder - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_001E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Total Households",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_001M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Total Households - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_002E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Households with any self-employment income in past 12 months",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_002M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Households with any self-employment income in past 12 months - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_003E",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Households with no self-employment income in past 12 months",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_003M",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 0
+                        },
+                        "isEditable": true,
+                        "label": "Households with no self-employment income in past 12 months - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_calc_pctSelfempE",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 1
+                        },
+                        "isEditable": true,
+                        "label": "Percent of households with any self-employment income",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "B19053_calc_pctSelfempM",
+                        "format": {
+                            "digitSeparator": true,
+                            "places": 1
+                        },
+                        "isEditable": true,
+                        "label": "Percent of households with any self-employment income - Margin of Error",
+                        "tooltip": "",
+                        "visible": true
+                    },
+                    {
+                        "fieldName": "expression/expr0",
+                        "isEditable": true,
+                        "visible": false
+                    }
+                ],
+                "title": "{NAME}, {State}"
+            }
+        }
+    ],
+    "baseMap": {
+        "baseMapLayers": [
+            {
+                "id": "VectorTile_1970",
+                "opacity": 1,
+                "title": "Light Gray Base",
+                "visibility": true,
+                "layerType": "VectorTileLayer",
+                "styleUrl": "https://cdn.arcgis.com/sharing/rest/content/items/291da5eab3a0412593b66d384379f89f/resources/styles/root.json"
+            },
+            {
+                "id": "VectorTile_7117",
+                "opacity": 1,
+                "title": "Light Gray Reference",
+                "visibility": true,
+                "layerType": "VectorTileLayer",
+                "styleUrl": "https://cdn.arcgis.com/sharing/rest/content/items/1768e8369a214dfab4e2167d5c5f2454/resources/styles/root.json",
+                "isReference": true
+            }
+        ],
+        "title": "Light Gray Canvas"
+    },
+    "authoringApp": "ArcGISMapViewer",
+    "authoringAppVersion": "2026.1",
+    "initialState": {
+        "viewpoint": {
+            "targetGeometry": {
+                "spatialReference": {
+                    "latestWkid": 3857,
+                    "wkid": 102100,
+                    "falseM": -100000,
+                    "falseX": -20037700,
+                    "falseY": -30241100,
+                    "falseZ": -100000,
+                    "mTolerance": 0.001,
+                    "mUnits": 10000,
+                    "xyTolerance": 0.001,
+                    "xyUnits": 10000,
+                    "zTolerance": 0.001,
+                    "zUnits": 10000
+                },
+                "xmin": -15409704.902287485,
+                "ymin": 1491235.1397295715,
+                "xmax": -7729312.300195018,
+                "ymax": 7596413.462921546
+            }
+        }
+    },
+    "spatialReference": {
+        "latestWkid": 3857,
+        "wkid": 102100,
+        "falseM": -100000,
+        "falseX": -20037700,
+        "falseY": -30241100,
+        "falseZ": -100000,
+        "mTolerance": 0.001,
+        "mUnits": 10000,
+        "xyTolerance": 0.001,
+        "xyUnits": 10000,
+        "zTolerance": 0.001,
+        "zUnits": 10000
+    },
+    "timeZone": "system",
+    "version": "2.36"
+}
