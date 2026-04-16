@@ -101,7 +101,7 @@ const appState = {
     lastCustomStops: null,
     offsetBase: null,
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
-    showOutliers: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
+    outliersVisibility: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
 }
 
@@ -954,6 +954,8 @@ async function getAllFeatures() {
             avg: math.mean(cleanValues),
             median: math.median(cleanValues),
             stddev: math.std(cleanValues),
+            lowCutoff: null,  
+            highCutoff: null,  
             lowOutliers: [],
             highOutliers:[],
         }
@@ -994,8 +996,10 @@ async function getAllFeatures() {
     
         const iqr = q3 - q1;
 
-        const lowCutoff = math.min(q1 - 1.5 * iqr, 0); // clamping it at 0, as we can't have negatives
+        const lowCutoff = math.max(q1 - 1.5 * iqr, 0); // clamping it at 0, as we can't have negatives
         const highCutoff = q3 + 1.5 * iqr;
+        appState.stats.lowCutoff = lowCutoff;
+        appState.stats.highCutoff = highCutoff;
 
         appState.stats.lowOutliers = sorted.filter(v => v < lowCutoff);
         appState.stats.highOutliers = sorted.filter(v => v > highCutoff);
@@ -1005,8 +1009,6 @@ async function getAllFeatures() {
         if(Math.abs(appState.stats.skewness) > 5){
             createOutliersButton()
         }
-
-
 
         console.log('App stats is', appState.stats) // log for debug
 
@@ -1018,6 +1020,9 @@ async function getAllFeatures() {
 }
 
 function createOutliersButton(){
+    const emptyLabel = document.createElement('calcite-label');
+    buttonsPanel.appendChild(emptyLabel); // adding an empty label for spacing
+
     const outlierToggle = document.createElement('calcite-button'); 
     outlierToggle.label = "Hide Outliers";
     outlierToggle.kind = "danger";
@@ -1028,28 +1033,43 @@ function createOutliersButton(){
 
 
     outlierToggle.addEventListener("click",  () => {
+
         
+        console.log(`After clicking, before any change, outliers toggle is ${outlierToggle.textContent}`)
+        outlierToggle.textContent = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+        outlierToggle.label = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+        
+        
+        // we use the 'old' mode (before click) to dcide what to do 
         // if we're currently showing outliers, we want to hide them
-        // if (appState.showOutliers) {
+        if (appState.outliersVisibility === "Hide Outliers") {
+            // hf.warnUser("Now we want to hide outliers");
+            sliderElement.min = appState.stats.lowCutoff;
+            sliderElement.max = appState.stats.highCutoff;
+            sliderElement.values = [
+                sliderElement.min,
+                ((sliderElement.mean - sliderElement.min) / 2) + sliderElement.min, 
+                sliderElement.mean, 
+                ((sliderElement.max - sliderElement.mean) / 2) + sliderElement.mean, 
+                sliderElement.max
+            ]
 
-            // hideOutliers();
-                
-        // otherwise we're hiding outliers, so we want to restore them
-        // } else {
-
-            // showOutliers();
-        // }
+        // otherwise we're currently hiding outliers, so we want to restore them
+        } else {
+            // hf.warnUser("Now we want to show outliers")
+            sliderElement.min = appState.stats.min;
+            sliderElement.max = appState.stats.max;
+            sliderElement.values = appState.lastCustomStops;
             
-            
-        // we use the 'old' mode (before click) as the new button label 
-        outlierToggle.textContent = appState.showOutliers;
-        outlierToggle.label = appState.showOutliers;
+            // outliersVisibility();
+        }
         
-        // and we'll switch the mode to the opposite state
-        appState.showOutliers = appState.showOutliers === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers"; // determining value for current click
-        console.log(`Changed buttom label FROM ${appState.showOutliers} to ${outlierToggle.label}`)
+        
+        // and we'll switch the app state variable to the opposite mode
+        console.log(`Changed buttom label FROM ${appState.outliersVisibility} to ${outlierToggle.textContent}`)
+        appState.outliersVisibility = outlierToggle.textContent
+        updateUI();
     })
-    
     
     buttonsPanel.appendChild(outlierToggle);
 }
@@ -1089,23 +1109,29 @@ function calculateStops(){
     console.log('appState.sliderValues are currently', appState.sliderValues); // log for debug
 }
 
+// function to hide/show outliers 
+
 // function to export the color ramp's current configuration as JSON
 jsonCopy.addEventListener("click", () => {
     // allJSON["operationalLayers"]["layerDefinition"]["drawingInfo"]["renderer"]["visualVariables"]
 
-    const allStopsJSON = [];
+    let allStopsJSON = [];
     appState.colorStops.forEach((currentStop, index)=> {
-        const currentStopJSON = JSON.stringify({
+        const currentStopJSON = {
             color :  [...currentStop.color, 255], 
             label: "",
             value: currentStop.value
-        });
+        };
         allStopsJSON.push(currentStopJSON);
     })
+
+    allStopsJSON = JSON.stringify(allStopsJSON, null, '\t');
+
     // copying the color ramp's json to the clipboard
     try { 
         navigator.clipboard.writeText(allStopsJSON);
         console.log("JSON for color ramp copied to clipboard:", allStopsJSON)
+        hf.warnUser(`JSON for color ramp with ${appState.colorStops.length} stops copied to clipboard.`, "success", true)
     } catch (err) {
         console.error('Failed to copy JSON with error: ', err);
     }

@@ -50,7 +50,7 @@ export function clamp (val, min, max) {
 
 
 // FUNCTION FOR DIPLAYING A CALCITE WARNING MESSAGE
-export function warnUser(message){
+export function warnUser(message, kind="warning", autoClose=false){
   // clear any existing warnings
   const existingAlert = document.querySelector("calcite-alert")
   if(existingAlert) existingAlert.remove(); // clearing any preexisting alerts
@@ -58,8 +58,8 @@ export function warnUser(message){
   // displaying an alert, warning the user to turn on the overlay when taking screensbot 
   const newAlert = document.createElement("calcite-alert");
   newAlert.open = true;
-  newAlert.kind = "warning";
-  newAlert.autoDismiss = true;
+  newAlert.kind = kind;
+  newAlert.autoClose = autoClose;
   const title = document.createElement("calcite-alert-message");
   title.textContent = message;
   title.slot = "title";
