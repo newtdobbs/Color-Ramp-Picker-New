@@ -14,7 +14,6 @@ const { getThemes, getSchemes, getSchemeByName, getSchemesByTag, cloneScheme, ge
 // const { all, names, byName, byTag } = await $arcgis.import("@arcgis/core/smartMapping/symbology/support/colorRamps.js");
 import "@arcgis/common-components/components/arcgis-slider";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
-import "@arcgis/common-components/components/arcgis-histogram";
 const summaryStatistics = await $arcgis.import("@arcgis/core/smartMapping/statistics/summaryStatistics.js");
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 const StatisticDefinition = await $arcgis.import("@arcgis/core/rest/support/StatisticDefinition.js");
@@ -84,7 +83,6 @@ const appState = {
     serviceInfo: null, // the service information gathered from the item ID 
     layerSelection: null, // the selected layer from the dropdown menu
     layer: null, // the feature layer created from the dropdown's selected layer
-    renderer: null, // the renderer for the selected layer
     field: null, // the selected field from the layer
     stats: null, // the statistics for the data distibution of the selected field
     description: null, // the description to populate the dialog 
@@ -524,14 +522,14 @@ function buildDescription() {
         descParts.push(`a ${severity}${kurtosisDirection} distribution.`);
     }
 
-    // OUTLIERS
-    if (math.abs(appState.stats.skewness) >  5) {
+    // // OUTLIERS
+    // if (math.abs(appState.stats.skewness) >  5) {
 
 
-        if(appState.stats.highOutliers.length > 0 || appState.stats.lowOutliers.length > 0){ // for high skew we'll encourage the user to hide outliers
-            descParts.push(`There are ${appState.stats.lowOutliers.length + appState.stats.highOutliers.length} outliers within the dataset, consider using the 'Filter Outliers' button to mask outliers from the map's symbology`);
-        }
-    } 
+    //     if(appState.stats.highOutliers.length > 0 || appState.stats.lowOutliers.length > 0){ // for high skew we'll encourage the user to hide outliers
+    //         descParts.push(`There are ${appState.stats.lowOutliers.length + appState.stats.highOutliers.length} outliers within the dataset, consider using the 'Filter Outliers' button to mask outliers from the map's symbology`);
+    //     }
+    // } 
 
     // PUTTING IT ALL TOGETHER    
     appState.description = descParts.join(" "); // assigning it to the state variable
@@ -1006,9 +1004,9 @@ async function getAllFeatures() {
 
         console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
 
-        if(Math.abs(appState.stats.skewness) > 5){
-            createOutliersButton()
-        }
+        // if(Math.abs(appState.stats.skewness) > 5){
+        //     createOutliersButton()
+        // }
 
         console.log('App stats is', appState.stats) // log for debug
 
@@ -1019,60 +1017,64 @@ async function getAllFeatures() {
     }
 }
 
-function createOutliersButton(){
-    const emptyLabel = document.createElement('calcite-label');
-    buttonsPanel.appendChild(emptyLabel); // adding an empty label for spacing
+// function createOutliersButton(){
+//     const emptyLabel = document.createElement('calcite-label');
+//     buttonsPanel.appendChild(emptyLabel); // adding an empty label for spacing
 
-    const outlierToggle = document.createElement('calcite-button'); 
-    outlierToggle.label = "Hide Outliers";
-    outlierToggle.kind = "danger";
-    outlierToggle.round = true;
-    outlierToggle.width = "full";
-    outlierToggle.id = "outlier-toggle"
-    outlierToggle.textContent = "Hide Outliers";
+//     const outlierToggle = document.createElement('calcite-button'); 
+//     outlierToggle.label = "Hide Outliers";
+//     outlierToggle.kind = "danger";
+//     outlierToggle.round = true;
+//     outlierToggle.width = "full";
+//     outlierToggle.id = "outlier-toggle"
+//     outlierToggle.textContent = "Hide Outliers";
 
 
-    outlierToggle.addEventListener("click",  () => {
+//     outlierToggle.addEventListener("click",  () => {
 
         
-        console.log(`After clicking, before any change, outliers toggle is ${outlierToggle.textContent}`)
-        outlierToggle.textContent = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
-        outlierToggle.label = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+//         console.log(`After clicking, before any change, outliers toggle is ${outlierToggle.textContent}`)
+//         outlierToggle.textContent = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+//         outlierToggle.label = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
         
-        
-        // we use the 'old' mode (before click) to dcide what to do 
-        // if we're currently showing outliers, we want to hide them
-        if (appState.outliersVisibility === "Hide Outliers") {
-            // hf.warnUser("Now we want to hide outliers");
-            sliderElement.min = appState.stats.lowCutoff;
-            sliderElement.max = appState.stats.highCutoff;
-            sliderElement.values = [
-                sliderElement.min,
-                ((sliderElement.mean - sliderElement.min) / 2) + sliderElement.min, 
-                sliderElement.mean, 
-                ((sliderElement.max - sliderElement.mean) / 2) + sliderElement.mean, 
-                sliderElement.max
-            ]
+//         console.log(`new slider values should theoretically be: 1.${appState.stats.lowCutoff},
+//             2.${((appState.stats.avg - appState.stats.lowCutoff) / 2) + appState.stats.lowCutoff}, 3.${appState.stats.avg},
+//             4.${((appState.stats.highCutoff - appState.stats.avg) / 2) + appState.stats.avg},
+//             5.${appState.stats.highCutoff}`)
 
-        // otherwise we're currently hiding outliers, so we want to restore them
-        } else {
-            // hf.warnUser("Now we want to show outliers")
-            sliderElement.min = appState.stats.min;
-            sliderElement.max = appState.stats.max;
-            sliderElement.values = appState.lastCustomStops;
+//         // we use the 'old' mode (before click) to dcide what to do 
+//         // if we're currently showing outliers, we want to hide them
+//         if (appState.outliersVisibility === "Hide Outliers") {
+//             // hf.warnUser("Now we want to hide outliers");
+//             sliderElement.min = appState.stats.lowCutoff;
+//             sliderElement.max = appState.stats.highCutoff;
+//             sliderElement.values = [
+//                 appState.stats.lowCutoff,
+//                 ((appState.stats.avg - appState.stats.lowCutoff) / 2) + appState.stats.lowCutoff, 
+//                 appState.stats.avg, 
+//                 ((appState.stats.highCutoff - appState.stats.avg) / 2) + appState.stats.avg, 
+//                 appState.stats.highCutoff
+//             ]
+
+//         // otherwise we're currently hiding outliers, so we want to restore them
+//         } else {
+//             // hf.warnUser("Now we want to show outliers")
+//             sliderElement.min = appState.stats.min;
+//             sliderElement.max = appState.stats.max;
+//             sliderElement.values = appState.lastCustomStops;
             
-            // outliersVisibility();
-        }
+//             // outliersVisibility();
+//         }
         
         
-        // and we'll switch the app state variable to the opposite mode
-        console.log(`Changed buttom label FROM ${appState.outliersVisibility} to ${outlierToggle.textContent}`)
-        appState.outliersVisibility = outlierToggle.textContent
-        updateUI();
-    })
+//         // and we'll switch the app state variable to the opposite mode
+//         console.log(`Changed buttom label FROM ${appState.outliersVisibility} to ${outlierToggle.textContent}`)
+//         appState.outliersVisibility = outlierToggle.textContent
+//         sliderHandler();
+//     })
     
-    buttonsPanel.appendChild(outlierToggle);
-}
+//     buttonsPanel.appendChild(outlierToggle);
+// }
 
 /* 
 function to calculate all stops when a field is first selected
@@ -1109,28 +1111,46 @@ function calculateStops(){
     console.log('appState.sliderValues are currently', appState.sliderValues); // log for debug
 }
 
-// function to hide/show outliers 
 
 // function to export the color ramp's current configuration as JSON
 jsonCopy.addEventListener("click", () => {
     // allJSON["operationalLayers"]["layerDefinition"]["drawingInfo"]["renderer"]["visualVariables"]
+    console.log('renderer test:', appState.layer.renderer);
+    let rendererJSON = JSON.stringify(appState.layer.renderer, null, '\t');
 
-    let allStopsJSON = [];
-    appState.colorStops.forEach((currentStop, index)=> {
-        const currentStopJSON = {
-            color :  [...currentStop.color, 255], 
-            label: "",
-            value: currentStop.value
-        };
-        allStopsJSON.push(currentStopJSON);
-    })
+    // let rendererJSON = {
+    //     authoringInfo: {
+    //         visualVariables: [{
+    //             maxSliderValue: sliderElement.max, 
+    //             minSliderValue: sliderElement.min,
+    //             theme: "above-and-below",
+    //             type: "colorInfo"
+    //         }]
+    //     },
+    //     type: "classBreaks",
+    //     visualVariables: [
+    //         {
+    //             type: "colorInfo",
+    //             field: appState.field.name,
+    //             stops: []
+    //         }
+    //     ]
+    // }
 
-    allStopsJSON = JSON.stringify(allStopsJSON, null, '\t');
+    // appState.colorStops.forEach((currentStop, index)=> {
+    //     const currentStopJSON = {
+    //         color :  [...currentStop.color, 255], 
+    //         label: "",
+    //         value: currentStop.value
+    //     };
+    //     rendererJSON['visualVariables'][0]['stops'].push(currentStopJSON);
+    // })
+
 
     // copying the color ramp's json to the clipboard
     try { 
-        navigator.clipboard.writeText(allStopsJSON);
-        console.log("JSON for color ramp copied to clipboard:", allStopsJSON)
+        navigator.clipboard.writeText(rendererJSON);
+        console.log("JSON for color ramp copied to clipboard:", rendererJSON)
         hf.warnUser(`JSON for color ramp with ${appState.colorStops.length} stops copied to clipboard.`, "success", true)
     } catch (err) {
         console.error('Failed to copy JSON with error: ', err);

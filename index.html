@@ -51,59 +51,59 @@
 
 
       </calcite-shell-panel>
-
+      
       <div class="map-frame" id="main-map"></div>
-        <calcite-dialog open placement="bottom" heading="Color Ramp Information for" scale="l" id="bottom-dialog" kind="success" resizable width="l">
-          <div style="display:flex;gap:2%;width:100%;height:100%;align-content:center;justify-content:center;align-items:center;">
-            <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
-              <!-- Histogram above -->
-              <arcgis-histogram
-                id="histogram"
-                slot="content-start"
-                color-blending-enabled
-                style="width:100%;max-width:100%;box-sizing:border-box;"
-                layout="horizontal"
-              ></arcgis-histogram>
+      <calcite-dialog open overlay-positioning="fixed" placement="bottom" heading="Color Ramp Information for" scale="l" id="bottom-dialog" kind="success" resizable width="l">
+        <div style="display:flex;gap:2%;width:100%;height:100%;align-content:center;justify-content:center;align-items:center;">
+          <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
+            <!-- Histogram above -->
+            <arcgis-histogram
+              id="histogram"
+              slot="content-start"
+              color-blending-enabled
+              style="width:100%;max-width:100%;box-sizing:border-box;"
+              layout="horizontal"
+            ></arcgis-histogram>
 
-              <div id="color-swatch" slot="content-end" ></div>
-            </arcgis-slider>
-            <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
-            <div id="right-buttons-panel">
-              <!-- SWITCH FOR COLOR CHANGE BEHAVIOR -->
-              <calcite-label>Color Change Behavior</calcite-label> 
-              <calcite-label layout="inline" slot="footer-end"> 
-                Static
-                <!-- adding a switch with a default value of "discrete" -->
-                <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
-                Responsive
-              </calcite-label>
-              
-              <!-- BUTTON FOR SMART MAPPING DEFAULTS -->
-              <calcite-button
-                label="Default"
-                width="full"
-                round
-                id="reset-button"
-                disabled
-                >
-                Default
-              </calcite-button>
-              <calcite-label> <!-- EMPTY LABEL FOR SPACING --> </calcite-label>
-              <calcite-button
-                label="Default"
-                width="full"
-                round
-                id="copy-json"
-                disabled
-                >
-                Copy JSON
-              </calcite-button>
+            <div id="color-swatch" slot="content-end" ></div>
+          </arcgis-slider>
+          <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
+          <div id="right-buttons-panel">
+            <!-- SWITCH FOR COLOR CHANGE BEHAVIOR -->
+            <calcite-label>Color Change Behavior</calcite-label> 
+            <calcite-label layout="inline" slot="footer-end"> 
+              Static
+              <!-- adding a switch with a default value of "discrete" -->
+              <calcite-switch disabled id="update-switch" value="static"></calcite-switch>
+              Responsive
+            </calcite-label>
+            
+            <!-- BUTTON FOR SMART MAPPING DEFAULTS -->
+            <calcite-button
+              label="Default"
+              width="full"
+              round
+              id="reset-button"
+              disabled
+              >
+              Default
+            </calcite-button>
+            <calcite-label> <!-- EMPTY LABEL FOR SPACING --> </calcite-label>
+            <calcite-button
+              label="Default"
+              width="full"
+              round
+              id="copy-json"
+              disabled
+              >
+              Copy JSON
+            </calcite-button>
 
-            </div>
           </div>
+        </div>
 
-          <div id="dialog-description" slot="footer"></div>
-        </calcite-dialog>
+        <div id="dialog-description" slot="footer"></div>
+      </calcite-dialog>
     </calcite-shell>
  
     <script type="module" src="/main.js"></script>
