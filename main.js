@@ -651,8 +651,13 @@ async function initializeDialogForField() {
     const histogramResult = await histogram({
         layer: appState.layer,
         field: appState.field.name,
+        minValue: appState.stats.min,
+        maxValue: appState.stats.max,
         numBins: Math.min(100, appState.stats.count)
     });
+
+    console.log('histogramResult:', histogramResult);
+    console.log('appState stats', appState.stats)
     
     histogramElement.min = histogramResult.minValue;
     histogramElement.max = histogramResult.maxValue;
@@ -1081,16 +1086,20 @@ function to calculate all stops when a field is first selected
 */
 function calculateStops(){
     
+    const lowStop = math.min(appState.stats.avg - appState.stats.stddev, 0)
+    const lowMidpoint = appState.stats.avg - appState.stats.stddev / 2
+    const highMidpoint = appState.stats.avg + appState.stats.stddev / 2
+
     
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
     // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
     const kScale =  1 / (1 + 0.3 * k); 
-    // console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
+    console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to scale factor of ${kScale}.`)
     
     // we're also gonna clamp skew to prevent wild scaling
     const s = Math.max(-5, Math.min(5, appState.stats.skewness));
-    // console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
+    console.log(`skewness ${appState.stats.skewness} has been clamped to scale factor of: ${s}.`)
     const leftSkewFactor = 1 - (0.2 * s);
     const rightSkewFactor = 1 + (0.2 * s);
     
@@ -1100,10 +1109,10 @@ function calculateStops(){
     
     
     appState.sliderValues = [
-        appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
-        appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
+        math.min(appState.stats.avg - appState.stats.stddev, 0), // slider value 1 is 1 sd below mean 
+        lowMidpoint - leftOffset, // slider value 2 is at the left offset of 1/2 a sd below mean
         appState.stats.avg, // slider value 3 is at the mean
-        appState.stats.avg + rightOffset, // slider value 4 is aat the right offset above the mean
+        highMidpoint + rightOffset, // slider value 4 is at the right offset of 1/2 a sd above mean 
         appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
     ]
 
@@ -1114,38 +1123,11 @@ function calculateStops(){
 
 // function to export the color ramp's current configuration as JSON
 jsonCopy.addEventListener("click", () => {
-    // allJSON["operationalLayers"]["layerDefinition"]["drawingInfo"]["renderer"]["visualVariables"]
-    console.log('renderer test:', appState.layer.renderer);
+
+    // console.log('renderer test:', appState.layer.renderer); // log for debug
+
+    // grapping the renderer from the map layer and json-stringifying it
     let rendererJSON = JSON.stringify(appState.layer.renderer, null, '\t');
-
-    // let rendererJSON = {
-    //     authoringInfo: {
-    //         visualVariables: [{
-    //             maxSliderValue: sliderElement.max, 
-    //             minSliderValue: sliderElement.min,
-    //             theme: "above-and-below",
-    //             type: "colorInfo"
-    //         }]
-    //     },
-    //     type: "classBreaks",
-    //     visualVariables: [
-    //         {
-    //             type: "colorInfo",
-    //             field: appState.field.name,
-    //             stops: []
-    //         }
-    //     ]
-    // }
-
-    // appState.colorStops.forEach((currentStop, index)=> {
-    //     const currentStopJSON = {
-    //         color :  [...currentStop.color, 255], 
-    //         label: "",
-    //         value: currentStop.value
-    //     };
-    //     rendererJSON['visualVariables'][0]['stops'].push(currentStopJSON);
-    // })
-
 
     // copying the color ramp's json to the clipboard
     try { 
