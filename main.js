@@ -685,12 +685,15 @@ async function initializeDialogForField() {
     
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener();
+    
 
     // Switch change handling
     updateSwitch.addEventListener("calciteSwitchChange", () => {
         appState.switchValue = appState.switchValue === "static" ? "responsive" : "static";  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
         attachSliderListener(); // need to attach the proper listener based on the switch value
     });
+
+    // appState.symbologyMode = "Default" value for current click
 
     // reset button handling
     resetButton.addEventListener("click",  () => {
@@ -1085,34 +1088,30 @@ async function getAllFeatures() {
 function to calculate all stops when a field is first selected
 */
 function calculateStops(){
-    
-    const lowStop = math.min(appState.stats.avg - appState.stats.stddev, 0)
-    const lowMidpoint = appState.stats.avg - appState.stats.stddev / 2
-    const highMidpoint = appState.stats.avg + appState.stats.stddev / 2
 
-    
+
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
     // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
     const kScale =  1 / (1 + 0.3 * k); 
-    console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to scale factor of ${kScale}.`)
-    
+    // console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
+
     // we're also gonna clamp skew to prevent wild scaling
     const s = Math.max(-5, Math.min(5, appState.stats.skewness));
-    console.log(`skewness ${appState.stats.skewness} has been clamped to scale factor of: ${s}.`)
+    // console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
     const leftSkewFactor = 1 - (0.2 * s);
     const rightSkewFactor = 1 + (0.2 * s);
-    
+
     const leftOffset = appState.stats.stddev * kScale * leftSkewFactor
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
-    
-    
+
+
     appState.sliderValues = [
-        math.min(appState.stats.avg - appState.stats.stddev, 0), // slider value 1 is 1 sd below mean 
-        lowMidpoint - leftOffset, // slider value 2 is at the left offset of 1/2 a sd below mean
+        appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
+        appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
         appState.stats.avg, // slider value 3 is at the mean
-        highMidpoint + rightOffset, // slider value 4 is at the right offset of 1/2 a sd above mean 
+        appState.stats.avg + rightOffset, // slider value 4 is aat the right offset above the mean
         appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
     ]
 
