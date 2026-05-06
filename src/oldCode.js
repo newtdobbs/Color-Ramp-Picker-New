@@ -233,6 +233,65 @@ async function OldcreateHistogramForField(ramp){
     return colorSlider;
 
 }
+// function createOutliersButton(){
+//     const emptyLabel = document.createElement('calcite-label');
+//     buttonsPanel.appendChild(emptyLabel); // adding an empty label for spacing
+
+//     const outlierToggle = document.createElement('calcite-button'); 
+//     outlierToggle.label = "Hide Outliers";
+//     outlierToggle.kind = "danger";
+//     outlierToggle.round = true;
+//     outlierToggle.width = "full";
+//     outlierToggle.id = "outlier-toggle"
+//     outlierToggle.textContent = "Hide Outliers";
+
+
+//     outlierToggle.addEventListener("click",  () => {
+
+        
+//         console.log(`After clicking, before any change, outliers toggle is ${outlierToggle.textContent}`)
+//         outlierToggle.textContent = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+//         outlierToggle.label = outlierToggle.textContent === "Hide Outliers" ? "Restore Outliers" : "Hide Outliers";
+        
+//         console.log(`new slider values should theoretically be: 1.${appState.stats.lowCutoff},
+//             2.${((appState.stats.avg - appState.stats.lowCutoff) / 2) + appState.stats.lowCutoff}, 3.${appState.stats.avg},
+//             4.${((appState.stats.highCutoff - appState.stats.avg) / 2) + appState.stats.avg},
+//             5.${appState.stats.highCutoff}`)
+
+//         // we use the 'old' mode (before click) to dcide what to do 
+//         // if we're currently showing outliers, we want to hide them
+//         if (appState.outliersVisibility === "Hide Outliers") {
+//             // hf.warnUser("Now we want to hide outliers");
+//             sliderElement.min = appState.stats.lowCutoff;
+//             sliderElement.max = appState.stats.highCutoff;
+//             sliderElement.values = [
+//                 appState.stats.lowCutoff,
+//                 ((appState.stats.avg - appState.stats.lowCutoff) / 2) + appState.stats.lowCutoff, 
+//                 appState.stats.avg, 
+//                 ((appState.stats.highCutoff - appState.stats.avg) / 2) + appState.stats.avg, 
+//                 appState.stats.highCutoff
+//             ]
+
+//         // otherwise we're currently hiding outliers, so we want to restore them
+//         } else {
+//             // hf.warnUser("Now we want to show outliers")
+//             sliderElement.min = appState.stats.min;
+//             sliderElement.max = appState.stats.max;
+//             sliderElement.values = appState.lastCustomStops;
+            
+//             // outliersVisibility();
+//         }
+        
+        
+//         // and we'll switch the app state variable to the opposite mode
+//         console.log(`Changed buttom label FROM ${appState.outliersVisibility} to ${outlierToggle.textContent}`)
+//         appState.outliersVisibility = outlierToggle.textContent
+//         sliderHandler();
+//     })
+    
+//     buttonsPanel.appendChild(outlierToggle);
+// }
+
 
 
 /* 
