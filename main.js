@@ -329,22 +329,18 @@ async function createMap() {
             layerId: appState.layerSelection.id
         });
         await layer.load();
+
+        // resetting the layer's view scale
+        layer.minScale = 45000000;
+        layer.maxScale = 0;
         // console.log('layer to populate in map', layer); // log for debug
         appState.map.add(layer);
         appState.layer = layer;
-
-        // zooming to the midpoint of the selected layer's visibility
-        console.log(`Layer scale is from ${appState.layer.minScale} ${appState.layer.maxScale}`);
-
-        let layerMinScale;
-        if (appState.layer.minScale === 0){
-            layerMinScale = default_scale;
-        } else {
-            layerMinScale = appState.layer.minScale;
-        }
-        const midScale = Math.floor((layerMinScale + appState.layer.maxScale) / 2);
-  
+        appState.layer.maxScale = layer.maxScale;
+        const midScale = Math.floor((appState.layer.minScale + appState.layer.maxScale) / 2);
+        
         console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
+        // zooming to the midpoint of the selected layer's visibility
         appState.view.goTo({ scale: midScale, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
 
 
@@ -560,14 +556,39 @@ function updateUI(){
     updateSwatch();
     updateButtons();
     console.log('------------ UPDATE UI DEBUG ------------------'); // log for debug
-    console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
     console.log('Slider stops are', appState.sliderValues);
     console.log('color stops are', appState.colorStops);
     console.log('----------------------------------------'); // log for debug
 }
 
+function clearStateForNewField(){
+    
+    appState.stats = null;
+    appState.description = null;
+    appState.sliderValues = null;
+    appState.colorStops = null;
+    appState.buttons = [];
+    appState.switchValue = "static";
+    appState.defaultValues = null;
+    appState.defaultStops = null;
+    appState.lastCustomStops = [];
+    appState.lastCustomValues = [];
+    appState.offsetBase = null
+    appState.symbologyMode = "Custom"
+    appState.outliersVisibility = "Hide Outliers"
+    appState.inflectionPoints = null 
+    resetButton.textContent = "Default";
+    resetButton.label = "Default";
+
+
+
+    console.log('app state is now:', appState)
+}
+
 async function initializeDialogForField() {
   try {
+
+    clearStateForNewField()    // resetting the state variables for the new field selection
 
     await getAllFeatures();
     
@@ -693,47 +714,6 @@ async function initializeDialogForField() {
         attachSliderListener(); // need to attach the proper listener based on the switch value
     });
 
-    // appState.symbologyMode = "Default" value for current click
-
-    // reset button handling
-    resetButton.addEventListener("click",  () => {
-        
-        // if we're currently using custom symbology, we want to TURN ON the smart mapping defaults
-        if (appState.symbologyMode === "Custom") {
-            // saving the current custom configuration before overwriting
-            appState.lastCustomValues = [...appState.sliderValues];
-            appState.lastCustomStops = [...appState.colorStops];
-            
-            // then applying smart mapping defaults
-            sliderElement.values = [...appState.defaultValues];
-            histogramElement.colorStops = [...appState.defaultStops];
-            appState.sliderValues = [...appState.defaultValues];
-            appState.colorStops = [...appState.defaultStops];
-            
-        // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
-        } else {
-            if (appState.lastCustomValues && appState.lastCustomStops) {
-                sliderElement.values = [...appState.lastCustomValues];
-                histogramElement.colorStops = [...appState.lastCustomStops];
-                appState.sliderValues = [...appState.lastCustomValues];
-                appState.colorStops = [...appState.lastCustomStops];
-            } else {
-                hf.warnUser("No custom configuration stored to restore.");
-            }
-        }
-        
-        
-        // we use the 'old' mode (before click) as the new button label 
-        resetButton.textContent = appState.symbologyMode;
-        resetButton.label = appState.symbologyMode;
-        
-        // and we'll switch the mode to the opposite state
-        appState.symbologyMode = appState.symbologyMode === "Default" ? "Custom" : "Default"; // determining value for current click
-        console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${resetButton.label}`)
-
-        updateUI(); // finally we updateUI to reflect these changes in the map/histogram
-    })
-
     // then we enable the switch for the user
     updateSwitch.disabled = false;
     resetButton.disabled = false;
@@ -747,6 +727,46 @@ async function initializeDialogForField() {
     console.error("Error creating histogram:", err);
   }
 }
+// reset button handling
+resetButton.addEventListener("click",  () => {
+    
+    // if we're currently using custom symbology, we want to TURN ON the smart mapping defaults
+    if (appState.symbologyMode === "Custom") {
+        // saving the current custom configuration before overwriting
+        appState.lastCustomValues = [...appState.sliderValues];
+        appState.lastCustomStops = [...appState.colorStops];
+        
+        // then applying smart mapping defaults
+        sliderElement.values = [...appState.defaultValues];
+        histogramElement.colorStops = [...appState.defaultStops];
+        appState.sliderValues = [...appState.defaultValues];
+        appState.colorStops = [...appState.defaultStops];
+        
+    // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
+    } else {
+        if (appState.lastCustomValues && appState.lastCustomStops) {
+            sliderElement.values = [...appState.lastCustomValues];
+            histogramElement.colorStops = [...appState.lastCustomStops];
+            appState.sliderValues = [...appState.lastCustomValues];
+            appState.colorStops = [...appState.lastCustomStops];
+        } else {
+            hf.warnUser("No custom configuration stored to restore.");
+        }
+    }
+    
+    
+    // we use the 'old' mode (before click) as the new button label 
+    resetButton.textContent = appState.symbologyMode;
+    resetButton.label = appState.symbologyMode;
+    
+    // and we'll switch the mode to the opposite state
+    appState.symbologyMode = appState.symbologyMode === "Default" ? "Custom" : "Default"; // determining value for current click
+    console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${resetButton.label}`)
+
+    console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
+
+    updateUI(); // finally we updateUI to reflect these changes in the map/histogram
+})
 
 // hiding buttons when slider is being dragged
 function hideButtonsOnDrag() {
@@ -765,8 +785,8 @@ function showButtonsOnRelease() {
         // and we need to offer the a return to default mode in the button's label
         resetButton.textContent = "Default";
         resetButton.label = "Default";
-   
-    }
+       }
+    console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 }
 
 // helper functiont to assign the correct event listener based on the input switch's mode
@@ -789,6 +809,7 @@ function attachSliderListener() {
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
     }
 }
+
 
 
 function sliderHandler() {
