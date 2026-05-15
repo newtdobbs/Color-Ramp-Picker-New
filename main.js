@@ -101,6 +101,8 @@ const appState = {
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
     outliersVisibility: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
+    colorPickerValue: null,
+    activeSliderThumb: null,
 }
 
 /* 
@@ -123,6 +125,7 @@ const updateSwitch = document.getElementById("update-switch");
 const resetButton = document.getElementById("reset-button");
 const buttonsPanel = document.getElementById("right-buttons-panel");
 const jsonCopy = document.getElementById("copy-json");
+const colorPicker = document.getElementById("color-picker");
 
  const handleActionBarClick = ({ target }) => {
 
@@ -331,7 +334,7 @@ async function createMap() {
         await layer.load();
 
         // resetting the layer's view scale
-        layer.minScale = 45000000;
+        layer.minScale = 500000000;
         layer.maxScale = 0;
         // console.log('layer to populate in map', layer); // log for debug
         appState.map.add(layer);
@@ -341,7 +344,7 @@ async function createMap() {
         
         console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
         // zooming to the midpoint of the selected layer's visibility
-        appState.view.goTo({ scale: midScale, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
+        appState.view.goTo({ scale: 22500000, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
 
 
     } catch (e) {
@@ -666,8 +669,7 @@ async function initializeDialogForField() {
 
     // // then updating the buttons
     // updateButtons();
-    
-       
+           
     // initializing renderer
     const histogramResult = await histogram({
         layer: appState.layer,
@@ -789,6 +791,46 @@ function showButtonsOnRelease() {
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 }
 
+
+function updateStopFromColorPicker(index){
+    console.log('color picker value', colorPicker.value)
+
+
+}
+
+function determineActiveValue(){
+    if (typeof sliderElement.activeValue === "number") {
+        appState.activeSliderThumbValue = sliderElement.activeValue;
+        console.log('active value in state', appState.activeSliderThumbValue);
+        
+        const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderThumbValue)
+        const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
+
+        console.log(`corresponding stop ${correspondingColorStopIndex}`, correspondingColorStop)
+
+        colorPicker.value = {
+            'r': correspondingColorStop.color[0],
+            'g': correspondingColorStop.color[1],
+            'b': correspondingColorStop.color[2],
+        }
+        
+        colorPicker.removeEventListener('calciteColorPickerChange', updateStopFromColorPicker)
+        colorPicker.addEventListener('calciteColorPickerChange', (event) =>{
+            console.log('color picker value', colorPicker.value)
+            appState.colorStops[correspondingColorStopIndex].color = [colorPicker.value.r, colorPicker.value.g, colorPicker.value.g] // using the color picker to update the state color stops
+            console.log('all color stops after custom inject', appState.colorStops)
+            appState.lastCustomStops = [...appState.colorStops]; 
+            updateUI(); // updating UI (histogram, swatch, map) to ingest the color picker's value
+            // appState.lastCustomStops = [...appState.colorStops]; 
+        });
+    }
+
+}
+
+
+
+
+
 // helper functiont to assign the correct event listener based on the input switch's mode
 function attachSliderListener() {
     // Remove any existing listeners to avoid duplicates
@@ -796,17 +838,20 @@ function attachSliderListener() {
     sliderElement.removeEventListener("arcgisInput", sliderHandler);
     sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
     sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease);
-
-
+    // sliderElement.removeEventListener("arcgisActiveValueChange", determineActiveValue)
+    
+    
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
     if (appState.switchValue === "static") {
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
         sliderElement.addEventListener("arcgisChange", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
+        sliderElement.addEventListener("arcgisActiveValueChange", determineActiveValue)
     } else {
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
         sliderElement.addEventListener("arcgisInput", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
+        sliderElement.addEventListener("arcgisActiveValueChange", determineActiveValue)
     }
 }
 
