@@ -102,7 +102,7 @@ const appState = {
     outliersVisibility: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
     colorPickerValue: null,
-    activeSliderThumb: null,
+    activeSliderValue: null,
 }
 
 /* 
@@ -127,7 +127,8 @@ const buttonsPanel = document.getElementById("right-buttons-panel");
 const jsonCopy = document.getElementById("copy-json");
 const colorPicker = document.getElementById("color-picker");
 
- const handleActionBarClick = ({ target }) => {
+
+const handleActionBarClick = ({ target }) => {
 
     console.log("active widget is currently:", appState.activeWidget)
     if (target.tagName !== "CALCITE-ACTION") {
@@ -583,8 +584,6 @@ function clearStateForNewField(){
     resetButton.textContent = "Default";
     resetButton.label = "Default";
 
-
-
     console.log('app state is now:', appState)
 }
 
@@ -791,40 +790,42 @@ function showButtonsOnRelease() {
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 }
 
-
-function updateStopFromColorPicker(index){
-    console.log('color picker value', colorPicker.value)
-
-
+function handleColorPickerChange() {
+    if(!appState.activeSliderValue){
+        hf.warnUser('no active slider value')
+    } else {
+        // hf.warnUser('active slider value is', appState.activeSliderValue);
+        console.log('COLOR CHANGE: slider element active value', appState.activeSliderValue, 'color stops', appState.colorStops)
+        const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderValue)
+        const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
+        console.log('Assiging', colorPicker.value,' to stop ', correspondingColorStopIndex);
+        appState.colorStops[correspondingColorStopIndex].color = [
+            colorPicker.value.r, // red
+            colorPicker.value.g, // green 
+            colorPicker.value.b, // blue
+        ] 
+        console.log('Color stops after change', appState.colorStops)
+        updateUI();
+    }
 }
 
-function determineActiveValue(){
+// Bind once: avoid stacking duplicate listeners when slider thumb changes.
+colorPicker.addEventListener("calciteColorPickerChange", handleColorPickerChange);
+
+function  handleActiveSliderThumb(){
     if (typeof sliderElement.activeValue === "number") {
-        appState.activeSliderThumbValue = sliderElement.activeValue;
-        console.log('active value in state', appState.activeSliderThumbValue);
-        
-        const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderThumbValue)
-        const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
-
-        console.log(`corresponding stop ${correspondingColorStopIndex}`, correspondingColorStop)
-
-        colorPicker.value = {
-            'r': correspondingColorStop.color[0],
-            'g': correspondingColorStop.color[1],
-            'b': correspondingColorStop.color[2],
+        if (appState.activeSliderValue != sliderElement.activeValue) {   // this only occurs on thumb CHANGE
+            appState.activeSliderValue = sliderElement.activeValue;
+            const correspondingSliderThumb = sliderElement.values.findIndex(value => value === sliderElement.activeValue);
+            console.log('slider element active value', sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
+            colorPicker.value = {
+                'r': appState.colorStops[correspondingSliderThumb].color[0],
+                'g': appState.colorStops[correspondingSliderThumb].color[1],
+                'b': appState.colorStops[correspondingSliderThumb].color[2],
+                'a': 100
+            };// populating the color picker with the slider's value
         }
-        
-        colorPicker.removeEventListener('calciteColorPickerChange', updateStopFromColorPicker)
-        colorPicker.addEventListener('calciteColorPickerChange', (event) =>{
-            console.log('color picker value', colorPicker.value)
-            appState.colorStops[correspondingColorStopIndex].color = [colorPicker.value.r, colorPicker.value.g, colorPicker.value.g] // using the color picker to update the state color stops
-            console.log('all color stops after custom inject', appState.colorStops)
-            appState.lastCustomStops = [...appState.colorStops]; 
-            updateUI(); // updating UI (histogram, swatch, map) to ingest the color picker's value
-            // appState.lastCustomStops = [...appState.colorStops]; 
-        });
     }
-
 }
 
 
@@ -837,21 +838,20 @@ function attachSliderListener() {
     sliderElement.removeEventListener("arcgisChange", sliderHandler);
     sliderElement.removeEventListener("arcgisInput", sliderHandler);
     sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
-    sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease);
-    // sliderElement.removeEventListener("arcgisActiveValueChange", determineActiveValue)
-    
+    sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease); 
+    sliderElement.removeEventListener("arcgisActiveValueChange", handleActiveSliderThumb) // changing the selected slider thumb
     
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
     if (appState.switchValue === "static") {
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
         sliderElement.addEventListener("arcgisChange", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
-        sliderElement.addEventListener("arcgisActiveValueChange", determineActiveValue)
+        sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
     } else {
         sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
         sliderElement.addEventListener("arcgisInput", sliderHandler);
         sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
-        sliderElement.addEventListener("arcgisActiveValueChange", determineActiveValue)
+        sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
     }
 }
 
