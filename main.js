@@ -805,7 +805,7 @@ function handleColorPickerChange() {
             colorPicker.value.b, // blue
         ] 
         console.log('Color stops after change', appState.colorStops)
-        updateUI();
+        sliderHandler();
     }
 }
 
@@ -880,6 +880,7 @@ function sliderHandler() {
 }
 
 function updateHistogram(){
+    console.log('updating histogram stops to:', appState.colorStops);
     histogramElement.colorStops = appState.colorStops; // pulling the histogram's stops from the state variable
 }
 
