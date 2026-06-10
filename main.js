@@ -194,8 +194,6 @@ async function createBasemapOnlyView() {
 
 await createBasemapOnlyView(); // assigning the returned view to the global state
 
-
-
 /* 
 LOGIC FOR INPUT DIALOG
 this will fire every time a new agol id is input
@@ -705,6 +703,8 @@ async function initializeDialogForField() {
         { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
     ]; 
     
+    console.log('histogram created', histogramElement)
+
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener();
     
@@ -803,6 +803,7 @@ function handleColorPickerChange() {
             colorPicker.value.r, // red
             colorPicker.value.g, // green 
             colorPicker.value.b, // blue
+            colorPicker.value.a // alpha value
         ] 
         console.log('Color stops after change', appState.colorStops)
         sliderHandler();
