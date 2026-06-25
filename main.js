@@ -21,102 +21,24 @@ import * as hf from "./helperFunctions";
 import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
 import { validateAppAccess } from "@esri/arcgis-rest-request";
 const Query = await $arcgis.import("@arcgis/core/rest/support/Query.js");
+import { appState } from "./src/state";
+import * as constants from "./src/modules/constants"
 
 
 
-/* 
-CONSTANTS
-*/
-const default_center = [-94.66, 39.04]; // Kansas City as map view as its ~roughly~ central in US
-const default_scale = 35000000; // roughly the lower 48
-
-// ideal field types, leaving all options in for un-ommenting
-const goodFieldTypes = [
-    "small-integer",
-    "integer",
-    "single",
-    "double",
-    "long",
-    // "string",
-    // "date",
-    // "oid",
-    // "geometry",
-    // "blob",
-    // "raster",
-    // "guid",
-    // "global-id",
-    // "xml",
-    "big-integer",
-    // "date-only",
-    // "time-only",
-    // "timestamp-offset"
-];
-// ideal field value types, leaving all options in for un-ommenting
-const goodFieldValueTypes = [
-  // "binary",
-  // "coordinate",
-  "count-or-amount",
-  "currency",
-  // "date-and-time",
-  // "description",
-  // "email-address",
-  // "location-or-place-name",
-  // "measurement",
-  // "name-or-title",
-  // "none",
-  // "ordered-or-ranked",
-  "percentage-or-ratio",
-  // "phone-number",
-  // "type-or-category",
-  // "unique-identifier"
-];
-
-/* 
-GLOBAL APP STATE
-This should hold info about the map, the chosen feature layer, the selected field, the histogram, etc
-*/
-const appState = {
-    activeWidget: "layers", // initializing active widget to layers so that its open on page load
-    map: null, // the map within the main map div
-    view: null, // the view associated with the map
-    inputItemID: null, // the item ID parsed from the user's input
-    serviceInfo: null, // the service information gathered from the item ID 
-    layerSelection: null, // the selected layer from the dropdown menu
-    layer: null, // the feature layer created from the dropdown's selected layer
-    field: null, // the selected field from the layer
-    stats: null, // the statistics for the data distibution of the selected field
-    description: null, // the description to populate the dialog 
-    sliderValues: null, // the values currently stored in the slider element
-    colorStops: null, // the color stops (color and value) currently stored in the slider elemnt
-    buttons: [], // the buttons for adding stops
-    defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
-    fieldsList: null, // the full fields list for the service
-    sliderActive: false,
-    switchValue: "static", // we defualt to static changes
-    defaultValues: null, // this should only ever be assigned upon field initialization
-    defaultStops: null, // this should only ever be assigned upon field initialization
-    lastCustomValues: null,
-    lastCustomStops: null,
-    offsetBase: null,
-    symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
-    outliersVisibility: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
-    inflectionPoints: null, // an array to store inflection values for the current field's distribution
-    colorPickerValue: null,
-    activeSliderValue: null,
-}
 
 /* 
 DOM ELEMENTS
 */
 const mapContainer = document.getElementById("main-map")
 const panelEls = document.querySelectorAll("calcite-panel"); // this grabs all panels from the actionbar(layers, basemap, legend)
-const layersPanel = document.getElementById("layers-panel"); // the panel for the service layers 
+const layersBlock = document.getElementById("layers-block"); // the panel for the service layers 
 const basemapGallery = document.querySelector("arcgis-basemap-gallery"); // the basemap gallery to bind it to the map view
 const inputBox = document.getElementById("input"); // the dialog box for users to type their input item ID
 const layerSelector = document.getElementById("layer-selector") // the dropdown for users to select a sublayer of the AGOL service
 const fieldsLabel = document.getElementById("fields-label");
 const generateButton = document.getElementById("generate-btn"); // the button that says 'Generate Histogram'
-const bottomDialog = document.getElementById("bottom-dialog"); // the bottom dialog, which is hidden by default
+const bottomPanel = document.getElementById("bottom-panel"); // the bottom dialog, which is hidden by default
 const desc = document.getElementById("dialog-description");
 const sliderElement = document.getElementById("color-slider");
 const swatch = document.getElementById("color-swatch");
@@ -128,40 +50,28 @@ const jsonCopy = document.getElementById("copy-json");
 const colorPicker = document.getElementById("color-picker");
 
 
+let activeWidget;
 const handleActionBarClick = ({ target }) => {
-
-    console.log("active widget is currently:", appState.activeWidget)
-    if (target.tagName !== "CALCITE-ACTION") {
-        return;
-    }
-
-    if (appState.activeWidget) {
-        document.querySelector(`[data-action-id=${appState.activeWidget}]`).active = false;
-        document.querySelector(`[data-panel-id=${appState.activeWidget}]`).closed = true;
-    }
-
-    const nextWidget = target.dataset.actionId;
-    if (nextWidget !== appState.activeWidget) {
-
-
-        document.querySelector(`[data-action-id=${appState.nextWidget}]`).active = true;
-        document.querySelector(`[data-panel-id=${appState.nextWidget}]`).closed = false;
-        appState.activeWidget = nextWidget;
-        document.querySelector(`[data-panel-id=${appState.nextWidget}]`).setFocus();
-    } else {
-        appState.activeWidget = null;
-    }
-};
-// Panel interaction
-for (let i = 0; i < panelEls.length; i++) {
-    panelEls[i].addEventListener("calcitePanelClose", () => {
-    document.querySelector(`[data-action-id=${appState.activeWidget}]`).active = false;
-    document.querySelector(`[data-action-id=${appState.activeWidget}]`).setFocus();
-    appState.activeWidget = null;
-    });
+if (target.tagName !== "CALCITE-ACTION") {
+    return;
 }
-document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
+if (activeWidget) {
+    document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
+    document.querySelector(`[data-block-id=${activeWidget}]`).hidden = true;
+}
+const nextWidget = target.dataset.actionId;
+console.log("Next widget is:", nextWidget)
+if (nextWidget !== activeWidget) {
+    document.querySelector(`[data-action-id=${nextWidget}]`).active = true;
+    document.querySelector(`[data-block-id=${nextWidget}]`).hidden = false;
+    document.querySelector(`[data-block-id=${nextWidget}]`).expanded = true;
 
+    activeWidget = nextWidget;
+} else {
+    activeWidget = null;
+}
+};
+document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
 
 async function createBasemapOnlyView() {
     const map = new Map({
@@ -181,7 +91,7 @@ async function createBasemapOnlyView() {
 
     console.log('view:', view)
     appState.view.when(() => {
-        appState.view.goTo({ scale: default_scale, center: default_center }); // zooming to the lower 48 centered 
+        appState.view.goTo({ scale: constants.default_scale, center: constants.default_center }); // zooming to the lower 48 centered 
     })
 
         if (basemapGallery) {
@@ -219,7 +129,7 @@ inputBox.addEventListener("keydown", async function (event) {
 
         // if valid information was attained from the service, we'll update the panel heading and create sublayer dropdown
         if (appState.serviceInfo){
-            layersPanel.heading = `Layer: ${appState.serviceInfo.title}`;
+            layersBlock.heading = `Layer: ${appState.serviceInfo.title}`;
             
             createDropdownForService(); // create a dropdown to list the sublayers
 
@@ -343,7 +253,7 @@ async function createMap() {
         
         console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
         // zooming to the midpoint of the selected layer's visibility
-        appState.view.goTo({ scale: 22500000, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
+        appState.view.goTo({ scale: 22500000, center: constants.default_center }); // re-zooming map the middle visibility rnage in to middle of the country
 
 
     } catch (e) {
@@ -372,7 +282,7 @@ function generateFieldsList() {
     // });
 
     appState.layer.fields.forEach(field => {
-        if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
+        if (constants.goodFieldTypes.includes(field.type) && constants.goodFieldValueTypes.includes(field.valueType)) {
             const listItem = document.createElement("calcite-list-item");
             listItem.label = field.alias;
             listItem.scale = "s";
@@ -422,22 +332,22 @@ generateButton.addEventListener("click", async () => {
     } else {
         
         // otherwise, closing any pre-existing dialog so we can re-generate its contents
-        if (bottomDialog.open){
-            // bottomDialog.textContent = "";    
-            bottomDialog.open = false;
+        if (bottomPanel.hidden === false){
+            // bottomPanel.textContent = "";    
+            bottomPanel.hidden = true;
         }
                     
         // resertting the dialog
-        // bottomDialog.textContent = "";  
+        // bottomPanel.textContent = "";  
         
         //if its non-numeric warn user
-        if(!goodFieldTypes.includes(appState.field.type)){
+        if(!constants.goodFieldTypes.includes(appState.field.type)){
             hf.warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
             appState.field = null;
             return
         }
         // // make sure its not just a Geoid, uniqueid, make sure its a DATA field
-        if(!goodFieldValueTypes.includes(appState.field.valueType)){
+        if(!constants.goodFieldValueTypes.includes(appState.field.valueType)){
             hf.warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
             appState.field = null;
             return
@@ -445,28 +355,29 @@ generateButton.addEventListener("click", async () => {
 
         // setting the heading and opening the dialog but with a loader
         
-        bottomDialog.open = true;
-        bottomDialog.componentOnReady();
-        bottomDialog.loading = true;
+        bottomPanel.hidden = false;
+        bottomPanel.componentOnReady();
+        bottomPanel.loading = true;
         
         try {
             // updating the dialog header
-            bottomDialog.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
-            bottomDialog.description = `Selected Layer: ${appState.layer.title}`
+            bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
+            bottomPanel.description = `Selected Layer: ${appState.layer.title}`
             
             // here we'll populate the dialog using the selected field's data distribution
             await initializeDialogForField()
-            desc.textContent = appState.description; // is now stored in state variable after initializing
+            // desc.textContent = appState.description; // is now stored in state variable after initializing
+            
             desc.slot = "content-bottom";
             
-            bottomDialog.appendChild(desc);
-            bottomDialog.loading = false;
+            bottomPanel.appendChild(desc);
+            bottomPanel.loading = false;
             
         } catch(err){
             console.log("Error generating histogram:", err)
-            bottomDialog.heading = `Error Generating Color Ramp Information for ${appState.field.alias}`
+            bottomPanel.heading = `Error Generating Color Ramp Information for ${appState.field.alias}`
         }
-        bottomDialog.open = true;
+        bottomPanel.hidden = false;
     }   
 });
 
@@ -803,7 +714,7 @@ function handleColorPickerChange() {
             colorPicker.value.r, // red
             colorPicker.value.g, // green 
             colorPicker.value.b, // blue
-            colorPicker.value.a // alpha value
+            colorPicker.value.a // alpha
         ] 
         console.log('Color stops after change', appState.colorStops)
         sliderHandler();

@@ -16,44 +16,38 @@
         </calcite-navigation-logo>
       </calcite-navigation>
 
-      <calcite-shell-panel slot="panel-start" display-mode="float-content">
-        <calcite-action-bar slot="action-bar" expanded>
-          <calcite-action data-action-id="layers" icon="layers" text="Layers" text-enabled></calcite-action>
-          <calcite-action data-action-id="basemaps" icon="basemap" text="Basemaps" text-enabled></calcite-action>
-          <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action>
-        </calcite-action-bar>
 
-        <calcite-panel heading="Layers" scale="l" data-panel-id="layers" id="layers-panel" closable>
-          <calcite-input placeholder="AGOL item ID" id="input">
-          </calcite-input>
 
-          <!-- empty label for spacing -->
-          <calcite-label class="empty-label"></calcite-label>
-          
-          <calcite-autocomplete name="layers" placeholder="" id="layer-selector">
-          </calcite-autocomplete>
-          
-          <!-- empty label for spacing -->
-          <!-- Our list of item fields-->
-          <calcite-label class="empty-label"></calcite-label>
-          <calcite-label id="fields-label"></calcite-label>
+      <calcite-shell-panel id="shell-panel-nav" slot="panel-start" height="l">
+        <calcite-panel heading="Color Ramp Adjuster" icon="color-correction" id="app-heading">
 
-          <calcite-button slot="footer" id="generate-btn" width="full">Generate Histogram</calcite-button>
-        </calcite-panel>
+          <calcite-action-bar slot="action-bar" layout="horizontal" expand-disabled>
+            <calcite-action data-action-id="layers" icon="layers" text="Layers" text-enabled></calcite-action>
+            <calcite-action data-action-id="basemaps" icon="basemap" text="Basemaps" text-enabled></calcite-action>
+            <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action>
+          </calcite-action-bar>
+          <calcite-block heading="Layers" scale="l" data-block-id="layers" id="layers-block" hidden>
+            <calcite-input placeholder="AGOL item ID" id="input"></calcite-input>
+            <calcite-label><!-- empty label for spacing --></calcite-label>
+            <calcite-autocomplete name="layers" placeholder="" id="layer-selector"></calcite-autocomplete>
+            <calcite-label><!-- empty label for spacing --></calcite-label>
+            <calcite-label id="fields-label"></calcite-label>
+            <calcite-button id="generate-btn" width="full">Generate Histogram</calcite-button>
+          </calcite-block>
 
-         <calcite-panel heading="Basemaps" scale="l" data-panel-id="basemaps" closed closable>
+         <calcite-block heading="Basemaps" scale="l" data-block-id="basemaps" hidden>
           <arcgis-basemap-gallery></arcgis-basemap-gallery>
-        </calcite-panel>
+        </calcite-block>
      
-        <calcite-panel heading="Legend" scale="l" data-panel-id="legend" closed closable>
+        <calcite-block heading="Legend" scale="l" data-block-id="legend" hidden>
           <arcgis-legend legend-style="classic" reference-element="main-map"></arcgis-legend>
-        </calcite-panel>
+        </calcite-block> 
 
 
       </calcite-shell-panel>
       
       <div class="map-frame" id="main-map"></div>
-      <calcite-dialog  overlay-positioning="fixed" placement="bottom" heading="Color Ramp Information for" scale="l" id="bottom-dialog" kind="success" resizable width="l">
+      <calcite-shell-panel resizable slot="panel-bottom" id="bottom-panel" hidden height="l">
         <div style="display:flex;gap:2%;width:100%;height:100%;align-content:center;justify-content:center;align-items:center;">
           <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
             <!-- Histogram above -->
@@ -64,9 +58,10 @@
               style="width:100%;max-width:100%;box-sizing:border-box;"
               layout="horizontal"
             ></arcgis-histogram>
-
+  
             <div id="color-swatch" slot="content-end" ></div>
           </arcgis-slider>
+          
           <!-- For now, I'll put this switch INSIDE the div next to the histogram -->
           <div id="right-buttons-panel">
             <!-- SWITCH FOR COLOR CHANGE BEHAVIOR -->
@@ -103,12 +98,11 @@
               >
               Copy JSON
             </calcite-button>
-
+  
           </div>
         </div>
-
         <div id="dialog-description" slot="footer"></div>
-      </calcite-dialog>
+      </calcite-shell-panel>
     </calcite-shell>
  
     <script type="module" src="/main.js"></script>
