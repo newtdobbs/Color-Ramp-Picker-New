@@ -60,6 +60,11 @@ calcite-rating {
   transition: 0.2s ease;
 }
 
+#dialog-description {
+  margin-top: 0.75rem;
+  line-height: 1.35;
+}
+
 /* vertical lines for color ramp breaks */
 .vertical {
   border-left: 3px solid black;

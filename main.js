@@ -23,31 +23,7 @@ import { validateAppAccess } from "@esri/arcgis-rest-request";
 const Query = await $arcgis.import("@arcgis/core/rest/support/Query.js");
 import { appState } from "./src/state";
 import * as constants from "./src/modules/constants"
-
-
-
-
-/* 
-DOM ELEMENTS
-*/
-const mapContainer = document.getElementById("main-map")
-const panelEls = document.querySelectorAll("calcite-panel"); // this grabs all panels from the actionbar(layers, basemap, legend)
-const layersBlock = document.getElementById("layers-block"); // the panel for the service layers 
-const basemapGallery = document.querySelector("arcgis-basemap-gallery"); // the basemap gallery to bind it to the map view
-const inputBox = document.getElementById("input"); // the dialog box for users to type their input item ID
-const layerSelector = document.getElementById("layer-selector") // the dropdown for users to select a sublayer of the AGOL service
-const fieldsLabel = document.getElementById("fields-label");
-const generateButton = document.getElementById("generate-btn"); // the button that says 'Generate Histogram'
-const bottomPanel = document.getElementById("bottom-panel"); // the bottom dialog, which is hidden by default
-const desc = document.getElementById("dialog-description");
-const sliderElement = document.getElementById("color-slider");
-const swatch = document.getElementById("color-swatch");
-const histogramElement = document.getElementById("histogram");
-const updateSwitch = document.getElementById("update-switch");
-const resetButton = document.getElementById("reset-button");
-const buttonsPanel = document.getElementById("right-buttons-panel");
-const jsonCopy = document.getElementById("copy-json");
-const colorPicker = document.getElementById("color-picker");
+import * as ui from "./src/modules/ui"
 
 
 let activeWidget;
@@ -83,7 +59,7 @@ async function createBasemapOnlyView() {
     appState.map = map;
 
     const view = new MapView({
-        container: mapContainer, // the dom element to hold our map
+        container: ui.mapContainer, // the dom element to hold our map
         map: map,
         ui: { components: [] }
     });
@@ -94,8 +70,8 @@ async function createBasemapOnlyView() {
         appState.view.goTo({ scale: constants.default_scale, center: constants.default_center }); // zooming to the lower 48 centered 
     })
 
-        if (basemapGallery) {
-        basemapGallery.view = view; // bind the MapView directly
+        if (ui.basemapGallery) {
+        ui.basemapGallery.view = view; // bind the MapView directly
     }
 
     return view;
@@ -109,15 +85,15 @@ LOGIC FOR INPUT DIALOG
 this will fire every time a new agol id is input
 We want to populate the dropdown with sublayers, and create a map
 */
-inputBox.addEventListener("keydown", async function (event) {
+ui.inputBox.addEventListener("keydown", async function (event) {
     if (event.key === "Enter") { 
         event.preventDefault(); // we want to avoid whatever normally happens with the 'Enter' key
 
         // hardcoding a default value --REMOVE THE IF BLOCK FOR DEPLOYMENT
-        if (inputBox.value === ""){
+        if (ui.inputBox.value === ""){
             appState.inputItemID = appState.defaultItemID // MINC
         } else {
-            const raw = inputBox.value || "";
+            const raw = ui.inputBox.value || "";
             const itemIDs = raw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
             const uniqueItemIDs = Array.from(new Set(itemIDs));
             appState.inputItemID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
@@ -129,7 +105,7 @@ inputBox.addEventListener("keydown", async function (event) {
 
         // if valid information was attained from the service, we'll update the panel heading and create sublayer dropdown
         if (appState.serviceInfo){
-            layersBlock.heading = `Layer: ${appState.serviceInfo.title}`;
+            ui.fieldBlock.heading = `Layer: ${appState.serviceInfo.title}`;
             
             createDropdownForService(); // create a dropdown to list the sublayers
 
@@ -138,7 +114,7 @@ inputBox.addEventListener("keydown", async function (event) {
             hf.warnUser(`No valid information attained for the service with the input item ID: ${appState.inputItemID}`);
         }
 
-        inputBox.value = ""; // clearing the input dialog box after everything is done
+        ui.inputBox.value = ""; // clearing the input dialog box after everything is done
 
         // if a fields list pre-existed, we'll clear it 
         if (appState.fieldsList) {
@@ -195,12 +171,12 @@ LOGIC FOR LAYER SELECTOR
 The dropdown list should be populated AFTER the item ID is input
 */
 function createDropdownForService() {
-    layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
-    layerSelector.placeholder = 'Select a Layer';
+    ui.layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
+    ui.layerSelector.placeholder = 'Select a Layer';
 
     if (appState.serviceInfo.layers.length === 1){
         appState.layer = appState.serviceInfo.layers[0]; // if needed we'll use the first entry in service layers info
-        layerSelector.placeholder = `Selected Layer: ${layer.name}`;
+        ui.layerSelector.placeholder = `Selected Layer: ${layer.name}`;
     }
 
     appState.serviceInfo.layers.forEach((serviceLayer) => {
@@ -209,11 +185,11 @@ function createDropdownForService() {
         layerOption.heading = serviceLayer.name || serviceLayer.id; // use the layer id as fallback
         layerOption.value = serviceLayer.id; // the layer id as value allows us to index it in the array
 
-        layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
+        ui.layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
         layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
             appState.layerSelection = serviceLayer; // setting the curent layer to the selected layer
             console.log('selection change to:', appState.layerSelection.name, 'layer info:', appState.layerSelection)
-            layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name}`; 
+            ui.layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name}`; 
 
             // call to createMap if the selection changes
             await createMap();
@@ -267,13 +243,13 @@ LOGIC FOR CREATING THE LIST OF FIELDS
 */
 
 function generateFieldsList() {
-    fieldsLabel.textContent = "Select a Field";
+    ui.fieldsLabel.textContent = "Select a Field";
     
     const fieldsList = document.createElement("calcite-list");
     fieldsList.innerHTML = ""; // removing any preexisting fields
     fieldsList.label = "Select a field";
     fieldsList.selectionMode = "single"; 
-    fieldsLabel.appendChild(fieldsList);
+    ui.fieldsLabel.appendChild(fieldsList);
 
     // Can log all the fields here for debug
     // console.log("All fields:");
@@ -321,9 +297,8 @@ function generateFieldsList() {
 LOGIC FOR THE DIALOG BOX
 This should only appear after the 'generate histogram' button was clicked
 */
-
 // functionality to handle the generate button
-generateButton.addEventListener("click", async () => {
+ui.generateButton.addEventListener("click", async () => {
 
     // error handling if no field is selected
     if(!appState.field){
@@ -332,9 +307,9 @@ generateButton.addEventListener("click", async () => {
     } else {
         
         // otherwise, closing any pre-existing dialog so we can re-generate its contents
-        if (bottomPanel.hidden === false){
+        if (ui.bottomPanel.hidden === false){
             // bottomPanel.textContent = "";    
-            bottomPanel.hidden = true;
+            ui.bottomPanel.hidden = true;
         }
                     
         // resertting the dialog
@@ -355,33 +330,35 @@ generateButton.addEventListener("click", async () => {
 
         // setting the heading and opening the dialog but with a loader
         
-        bottomPanel.hidden = false;
-        bottomPanel.componentOnReady();
-        bottomPanel.loading = true;
+        ui.bottomPanel.hidden = false;
+        ui.bottomPanel.componentOnReady();
+        ui.bottomPanel.loading = true;
         
+        const testPanel = document.getElementById("test-panel")
         try {
             // updating the dialog header
-            bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
-            bottomPanel.description = `Selected Layer: ${appState.layer.title}`
+            testPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
+            testPanel.description = `Selected Layer: ${appState.layer.title}`
             
             // here we'll populate the dialog using the selected field's data distribution
             await initializeDialogForField()
             // desc.textContent = appState.description; // is now stored in state variable after initializing
+
+            // desc.slot = "content-bottom";
+
+            console.log("App state description", appState.description);
             
-            desc.slot = "content-bottom";
-            
-            bottomPanel.appendChild(desc);
-            bottomPanel.loading = false;
+            ui.description.textContent = appState.description;
+            // testPanel.appendChild(newDiv)
+            ui.bottomPanel.loading = false;
             
         } catch(err){
             console.log("Error generating histogram:", err)
-            bottomPanel.heading = `Error Generating Color Ramp Information for ${appState.field.alias}`
+            testPanel.heading = `Error Generating Color Ramp Information`
         }
-        bottomPanel.hidden = false;
+        ui.bottomPanel.hidden = false;
     }   
 });
-
-
 
 /* 
 LOGIC FOR COMPILING A DESCRIPTION FROM THE FIELD STATISTICS
@@ -475,7 +452,6 @@ function updateUI(){
 }
 
 function clearStateForNewField(){
-    
     appState.stats = null;
     appState.description = null;
     appState.sliderValues = null;
@@ -490,10 +466,8 @@ function clearStateForNewField(){
     appState.symbologyMode = "Custom"
     appState.outliersVisibility = "Hide Outliers"
     appState.inflectionPoints = null 
-    resetButton.textContent = "Default";
-    resetButton.label = "Default";
-
-    console.log('app state is now:', appState)
+    ui.resetButton.textContent = "Default";
+    ui.resetButton.label = "Default";
 }
 
 async function initializeDialogForField() {
@@ -546,14 +520,14 @@ async function initializeDialogForField() {
     */
     // grabbing the slider element & using the stats to adjust it
     calculateStops(); // calculating stops which will be stored in the state variable
-    sliderElement.min = appState.stats.min; // slider range will go all the way to min to show full spread of values
-    sliderElement.max = appState.stats.max; // slider range will go all the way to max to show full spread of values
-    console.log(`slider element is within the range of ${sliderElement.min} to ${sliderElement.max}`)
+    ui.sliderElement.min = appState.stats.min; // slider range will go all the way to min to show full spread of values
+    ui.sliderElement.max = appState.stats.max; // slider range will go all the way to max to show full spread of values
+    console.log(`slider element is within the range of ${ui.sliderElement.min} to ${ui.sliderElement.max}`)
 
     // 5 stop slider
-    sliderElement.values = appState.sliderValues; // we'll pull from state values which we calcualte in 
-    appState.sliderValues = sliderElement.values; // initializing sliderValues to handle the FIRST change
-    appState.lastCustomValues = appState.sliderValues; // storing the initial values as custom values since we DON't use SM deafults on first load
+    ui.sliderElement.values = [...appState.sliderValues]; // assign a fresh array so slider reacts reliably
+    appState.sliderValues = [...ui.sliderElement.values]; // copy to avoid sharing the component's internal array reference
+    appState.lastCustomValues = [...appState.sliderValues]; // store an independent copy of initial custom values
     
     // SMART MAPPING DEFAULTS defaults as -1sd, midpoint of -1sd and mean, mean, midpoint of 1sd and mean, and 1sd
     appState.defaultValues = [
@@ -565,9 +539,9 @@ async function initializeDialogForField() {
     ]
 
     // console.log(`sliderValues represented as ${sliderValues}`) // log for debug
-    sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
-    sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
-    sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
+    ui.sliderElement.valueLabelsPlacement = "after"; // placing value labels after (aka under) the slider
+    ui.sliderElement.valueLabelsEditingEnabled = true; // allow users to edit slider values directly
+    ui.sliderElement.segmentsDraggingDisabled = true; // don't want dragging between the stops
 
     // creating buttons
     for(let i = 1; i < appState.sliderValues.length; i++){
@@ -590,21 +564,21 @@ async function initializeDialogForField() {
     console.log('histogramResult:', histogramResult);
     console.log('appState stats', appState.stats)
     
-    histogramElement.min = histogramResult.minValue;
-    histogramElement.max = histogramResult.maxValue;
-    histogramElement.bins = histogramResult.bins;
+    ui.histogramElement.min = histogramResult.minValue;
+    ui.histogramElement.max = histogramResult.maxValue;
+    ui.histogramElement.bins = histogramResult.bins;
     
 
     // assigning histogram color stops using the respective slider element value
     // we're not going to round these values to 2 decimals, as that may truncate some low values to 0
-    histogramElement.colorStops = colorSchemeStops.map((color, index) => ({
+    ui.histogramElement.colorStops = colorSchemeStops.map((color, index) => ({
         color,
         value: appState.sliderValues[index]
     }));
 
-    histogramElement.colorBlendingEnabled = true;
-    appState.colorStops = histogramElement.colorStops; // initializing the state variable color stops
-    appState.lastCustomStops = appState.colorStops; // storing initial stops as CUSTOM stops since we DONT use SM defaults on first load
+    ui.histogramElement.colorBlendingEnabled = true;
+    appState.colorStops = ui.histogramElement.colorStops.map(stop => ({ ...stop })); // clone to avoid mutating histogram internals by reference
+    appState.lastCustomStops = appState.colorStops.map(stop => ({ ...stop })); // store independent copy as initial custom stops
     // SMART MAPPING DEFAULTS
     appState.defaultStops = [
         { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev },
@@ -614,22 +588,22 @@ async function initializeDialogForField() {
         { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
     ]; 
     
-    console.log('histogram created', histogramElement)
+    console.log('histogram created', ui.histogramElement)
 
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener();
     
 
     // Switch change handling
-    updateSwitch.addEventListener("calciteSwitchChange", () => {
-        appState.switchValue = appState.switchValue === "static" ? "responsive" : "static";  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
-        attachSliderListener(); // need to attach the proper listener based on the switch value
-    });
+    // updateSwitch.addEventListener("calciteSwitchChange", () => {
+    //     appState.switchValue = appState.switchValue === "static" ? "responsive" : "static";  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
+    //     attachSliderListener(); // need to attach the proper listener based on the switch value
+    // });
 
     // then we enable the switch for the user
-    updateSwitch.disabled = false;
-    resetButton.disabled = false;
-    jsonCopy.disabled = false;
+    // updateSwitch.disabled = false;
+    ui.resetButton.disabled = false;
+    ui.jsonCopy.disabled = false;
     
     // we have to call this function as even though updateUI() is within sliderHandler
     // its not actually called when the app is initialized, we merely add an event listener for it    
@@ -640,7 +614,7 @@ async function initializeDialogForField() {
   }
 }
 // reset button handling
-resetButton.addEventListener("click",  () => {
+ui.resetButton.addEventListener("click",  () => {
     
     // if we're currently using custom symbology, we want to TURN ON the smart mapping defaults
     if (appState.symbologyMode === "Custom") {
@@ -649,16 +623,16 @@ resetButton.addEventListener("click",  () => {
         appState.lastCustomStops = [...appState.colorStops];
         
         // then applying smart mapping defaults
-        sliderElement.values = [...appState.defaultValues];
-        histogramElement.colorStops = [...appState.defaultStops];
+        ui.sliderElement.values = [...appState.defaultValues];
+        ui.histogramElement.colorStops = [...appState.defaultStops];
         appState.sliderValues = [...appState.defaultValues];
         appState.colorStops = [...appState.defaultStops];
         
     // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
     } else {
         if (appState.lastCustomValues && appState.lastCustomStops) {
-            sliderElement.values = [...appState.lastCustomValues];
-            histogramElement.colorStops = [...appState.lastCustomStops];
+            ui.sliderElement.values = [...appState.lastCustomValues];
+            ui.histogramElement.colorStops = [...appState.lastCustomStops];
             appState.sliderValues = [...appState.lastCustomValues];
             appState.colorStops = [...appState.lastCustomStops];
         } else {
@@ -668,12 +642,12 @@ resetButton.addEventListener("click",  () => {
     
     
     // we use the 'old' mode (before click) as the new button label 
-    resetButton.textContent = appState.symbologyMode;
-    resetButton.label = appState.symbologyMode;
+    ui.resetButton.textContent = appState.symbologyMode;
+    ui.resetButton.label = appState.symbologyMode;
     
     // and we'll switch the mode to the opposite state
     appState.symbologyMode = appState.symbologyMode === "Default" ? "Custom" : "Default"; // determining value for current click
-    console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${resetButton.label}`)
+    console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${ui.resetButton.label}`)
 
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 
@@ -709,27 +683,27 @@ function handleColorPickerChange() {
         console.log('COLOR CHANGE: slider element active value', appState.activeSliderValue, 'color stops', appState.colorStops)
         const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderValue)
         const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
-        console.log('Assiging', colorPicker.value,' to stop ', correspondingColorStopIndex);
+        console.log('Assiging', ui.colorPicker.value,' to stop ', correspondingColorStopIndex);
         appState.colorStops[correspondingColorStopIndex].color = [
-            colorPicker.value.r, // red
-            colorPicker.value.g, // green 
-            colorPicker.value.b, // blue
-            colorPicker.value.a // alpha
+            ui.colorPicker.value.r, // red
+            ui.colorPicker.value.g, // green 
+            ui.colorPicker.value.b, // blue
+            ui.colorPicker.value.a // alpha
         ] 
         console.log('Color stops after change', appState.colorStops)
         sliderHandler();
     }
 }
 
-// Bind once: avoid stacking duplicate listeners when slider thumb changes.
-colorPicker.addEventListener("calciteColorPickerChange", handleColorPickerChange);
+// adding event listener only once
+ui.colorPicker.addEventListener("calciteColorPickerChange", handleColorPickerChange);
 
-function  handleActiveSliderThumb(){
-    if (typeof sliderElement.activeValue === "number") {
-        if (appState.activeSliderValue != sliderElement.activeValue) {   // this only occurs on thumb CHANGE
-            appState.activeSliderValue = sliderElement.activeValue;
-            const correspondingSliderThumb = sliderElement.values.findIndex(value => value === sliderElement.activeValue);
-            console.log('slider element active value', sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
+function handleActiveSliderThumb(){
+    if (typeof ui.sliderElement.activeValue === "number") {
+        if (appState.activeSliderValue != ui.sliderElement.activeValue) {   // this only occurs on thumb CHANGE
+            appState.activeSliderValue = ui.sliderElement.activeValue;
+            const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+            console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
             colorPicker.value = {
                 'r': appState.colorStops[correspondingSliderThumb].color[0],
                 'g': appState.colorStops[correspondingSliderThumb].color[1],
@@ -740,48 +714,40 @@ function  handleActiveSliderThumb(){
     }
 }
 
-
-
-
-
 // helper functiont to assign the correct event listener based on the input switch's mode
 function attachSliderListener() {
     // Remove any existing listeners to avoid duplicates
-    sliderElement.removeEventListener("arcgisChange", sliderHandler);
-    sliderElement.removeEventListener("arcgisInput", sliderHandler);
-    sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
-    sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease); 
-    sliderElement.removeEventListener("arcgisActiveValueChange", handleActiveSliderThumb) // changing the selected slider thumb
+    ui.sliderElement.removeEventListener("arcgisChange", sliderHandler);
+    ui.sliderElement.removeEventListener("arcgisInput", sliderHandler);
+    ui.sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
+    ui.sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease); 
+    ui.sliderElement.removeEventListener("arcgisActiveValueChange", handleActiveSliderThumb) // changing the selected slider thumb
     
+    // we'll default to using continuous change, so we'll comment out the static response    
     // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
-    if (appState.switchValue === "static") {
-        sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
-        sliderElement.addEventListener("arcgisChange", sliderHandler);
-        sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
-        sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
-    } else {
-        sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
-        sliderElement.addEventListener("arcgisInput", sliderHandler);
-        sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
-        sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
-    }
+    // if (appState.switchValue === "static") {
+    //     ui.sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+    //     ui.sliderElement.addEventListener("arcgisChange", sliderHandler);
+    //     ui.sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
+    //     ui.sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
+    ui.sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+    ui.sliderElement.addEventListener("arcgisInput", sliderHandler);
+    ui.sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
+    ui.sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
 }
-
-
 
 function sliderHandler() {
     // if a slider moves, we'll provide the option to reset defaults
     // console.log(`Current state of reset is ${resetButton.textContent}`) // log for debug
-
     
-    appState.sliderValues = [...sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
+    appState.sliderValues = [...ui.sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
     
     const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
         ...colorStop,
         value: appState.sliderValues[i] // these are the NEW values currently in the slider
     })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
-    // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
+    // appState.sliderValues = [...ui.sliderElement.values]; // updating the global state so we can just pull from there 
     
     // finally calling updateUI, which should only be using state variables
     updateUI(); 
@@ -793,7 +759,7 @@ function sliderHandler() {
 
 function updateHistogram(){
     console.log('updating histogram stops to:', appState.colorStops);
-    histogramElement.colorStops = appState.colorStops; // pulling the histogram's stops from the state variable
+    ui.histogramElement.colorStops = appState.colorStops; // pulling the histogram's stops from the state variable
 }
 
 function updateRenderer() {
@@ -810,14 +776,18 @@ function updateRenderer() {
     const colorVariable = renderer.visualVariables[colorVarIndex].clone(); // cloning the color variable at its index
 
     // if the user adds another thumb, the renderer's color stops and the number of slider thumbs WONT match
-    if (colorVariable.stops.length !== appState.sliderValues.length) {
-        console.log(`Rebuilding from ${colorVariable.stops.length} to ${appState.sliderValues.length} stops`)
+    // adding a stop
+    if (colorVariable.stops.length < appState.sliderValues.length) {
+        console.log(`Stop added, color variable has ${colorVariable.stops.length} stops, slider has ${appState.sliderValues.length} values`)
+        // console.log(`Rebuilding from ${colorVariable.stops.length} to ${appState.sliderValues.length} stops`)
         // so we'll have to to rebuild the color variable using the color stops in state variable
         colorVariable.stops = appState.colorStops.map(stop => ({
             // the appState.colorStops should already have updated color information from the createButton click event listener
             color: stop.color,
             value: stop.value
         }));
+    } else if (colorVariable.stops.length > appState.sliderValues.length){
+        console.log(`Stop removed, color variable has ${colorVariable.stops.length} stops, slider has ${appState.sliderValues.length} values`)        
     } else {
         colorVariable.stops = colorVariable.stops.map((stop, i) => ({
             ...stop,
@@ -832,7 +802,6 @@ function updateRenderer() {
     appState.layer.renderer = renderer; // updating the state variable's renderer
 }
 
-
 function updateSwatch() {
     const gradientParts = appState.colorStops.map((stop, index) => {
         
@@ -840,7 +809,7 @@ function updateSwatch() {
         return `rgb(${stop.color.join(",")}) ${percent}%`; // returning the color at that stop to actually create the swatch
     });
     // creating a linear gradient from the pieces we just assembled from the color stops
-    swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
+    ui.swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
 } 
 
 function createButton(buttonValue){
@@ -867,8 +836,8 @@ function createButton(buttonValue){
     // event listener for click to add a color stop at the button's location
     button.addEventListener("click", () => {
         // determining WHERE to insert the new value
-        let insertIndex = appState.sliderValues.findIndex(v => v > buttonValue);
-        if (insertIndex === -1) insertIndex = appState.sliderValues.length;
+        let insertIndex = appState.sliderValues.findIndex(v => v > buttonValue); // we find the slider thumb which was above the button that was clicked
+        if (insertIndex === -1) insertIndex = appState.sliderValues.length; // if no slider values were greater than the button, we insert at the end using the length as the index
 
         // interpolating between the color stops above and below the value
         let lowerStop = appState.colorStops[insertIndex - 1];
@@ -880,27 +849,32 @@ function createButton(buttonValue){
             Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
         ];
 
-        // inserting a new value into the state variables FIRST, the sliderValues and colorStops array
-        appState.sliderValues.splice(insertIndex, 0, buttonValue);
-        appState.colorStops.splice(insertIndex, 0, { color: newColor, value: buttonValue });
+        // Build new arrays instead of mutating in place so slider re-renders on first insert.
+        const nextSliderValues = [...appState.sliderValues];
+        nextSliderValues.splice(insertIndex, 0, buttonValue);
 
-        
-        // then updating DOM elements form there
-        sliderElement.values = [...appState.sliderValues];
-        histogramElement.colorStops = [...appState.colorStops];
+        const nextColorStops = [...appState.colorStops];
+        nextColorStops.splice(insertIndex, 0, { color: newColor, value: buttonValue });
+
+        appState.sliderValues = nextSliderValues;
+        appState.colorStops = nextColorStops;
+
+        // then updating DOM elements form the state 
+        ui.sliderElement.values = [...nextSliderValues];
+        ui.histogramElement.colorStops = [...nextColorStops];
 
         // updating UI
         updateUI();
     });
 
     // button.style.left = `${percentAlongSwatch}%` // the button's position will be determined in updateButtons() 
-    swatch.appendChild(button); // adding the button to the swatch div
+    ui.swatch.appendChild(button); // adding the button to the swatch div
     appState.buttons.push(button); // adding the to the app app state
 }
 
 function updateButtons(){
 
-    swatch.innerHTML = "";
+    ui.swatch.innerHTML = "";
     appState.buttons = [];
 
     for(let i = 1; i < appState.sliderValues.length; i++){
@@ -913,7 +887,6 @@ function updateButtons(){
         appState.buttons[i - 1].style.left = `${midpointPercent}%`;
     }
 }
-
 
 // FUNCTION FOR QUERYING ALL DATA FROM A FIELD
 async function getAllFeatures() {
@@ -1033,9 +1006,9 @@ async function getAllFeatures() {
 //         // if we're currently showing outliers, we want to hide them
 //         if (appState.outliersVisibility === "Hide Outliers") {
 //             // hf.warnUser("Now we want to hide outliers");
-//             sliderElement.min = appState.stats.lowCutoff;
-//             sliderElement.max = appState.stats.highCutoff;
-//             sliderElement.values = [
+//             ui.sliderElement.min = appState.stats.lowCutoff;
+//             ui.sliderElement.max = appState.stats.highCutoff;
+//             ui.sliderElement.values = [
 //                 appState.stats.lowCutoff,
 //                 ((appState.stats.avg - appState.stats.lowCutoff) / 2) + appState.stats.lowCutoff, 
 //                 appState.stats.avg, 
@@ -1046,9 +1019,9 @@ async function getAllFeatures() {
 //         // otherwise we're currently hiding outliers, so we want to restore them
 //         } else {
 //             // hf.warnUser("Now we want to show outliers")
-//             sliderElement.min = appState.stats.min;
-//             sliderElement.max = appState.stats.max;
-//             sliderElement.values = appState.lastCustomStops;
+//             ui.sliderElement.min = appState.stats.min;
+//             ui.sliderElement.max = appState.stats.max;
+//             ui.sliderElement.values = appState.lastCustomStops;
             
 //             // outliersVisibility();
 //         }
@@ -1068,7 +1041,6 @@ function to calculate all stops when a field is first selected
 */
 function calculateStops(){
 
-
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
     // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
@@ -1085,7 +1057,6 @@ function calculateStops(){
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
 
-
     appState.sliderValues = [
         appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
         appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
@@ -1094,13 +1065,12 @@ function calculateStops(){
         appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
     ]
 
-
     console.log('appState.sliderValues are currently', appState.sliderValues); // log for debug
 }
 
 
 // function to export the color ramp's current configuration as JSON
-jsonCopy.addEventListener("click", () => {
+ui.jsonCopy.addEventListener("click", () => {
 
     // console.log('renderer test:', appState.layer.renderer); // log for debug
 
