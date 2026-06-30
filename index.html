@@ -19,13 +19,12 @@
         <calcite-panel heading="Color Ramp Adjuster" icon="color-coded-map" display="float" id="app-heading">
 
           <calcite-action-bar slot="action-bar" layout="horizontal" expand-disabled>
-            <calcite-action data-action-id="field" icon="list-radio" text="field" text-enabled></calcite-action>
+            <calcite-action data-action-id="field" icon="list-radio" text="Field" active text-enabled></calcite-action>
             <calcite-action data-action-id="basemaps" icon="basemap" text="Basemap" text-enabled></calcite-action>
-            <!-- <calcite-action data-action-id="legend" icon="legend" text="Legend" text-enabled></calcite-action> -->
-            <calcite-action data-action-id="ramp" icon="color-correction" text="Color Ramp" text-enabled></calcite-action>
+            <calcite-action data-action-id="ramp" icon="color-correction" text="Color Ramp" disabled text-enabled></calcite-action>
           </calcite-action-bar>
 
-          <calcite-block heading="Field" scale="l" data-block-id="field" id="field-block" hidden>
+          <calcite-block heading="Layer:" scale="l" data-block-id="field" expanded id="field-block">
             <calcite-input placeholder="AGOL item ID" id="input"></calcite-input>
             <calcite-label><!-- empty label for spacing --></calcite-label>
             <calcite-autocomplete name="layers" placeholder="" id="layer-selector"></calcite-autocomplete>
@@ -56,14 +55,10 @@
       <div class="map-frame" id="main-map"></div>
       <calcite-shell-panel resizable slot="panel-bottom" id="bottom-panel" hidden height="l">
         <calcite-panel id="test-panel">
-            <div style="display:flex;flex-direction:column">
-
-              <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
-                <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal"></arcgis-histogram>
-                <div id="color-swatch" slot="content-end" ></div>
-              </arcgis-slider>  
-            </div>
-        </div> 
+          <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
+            <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal"></arcgis-histogram>
+            <div id="color-swatch" slot="content-end" ></div>
+          </arcgis-slider>  
     </calcite-panel>
   </calcite-shell-panel>
 </calcite-shell>

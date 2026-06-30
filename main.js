@@ -26,7 +26,7 @@ import * as constants from "./src/modules/constants"
 import * as ui from "./src/modules/ui"
 
 
-let activeWidget;
+let activeWidget = "field";
 const handleActionBarClick = ({ target }) => {
 if (target.tagName !== "CALCITE-ACTION") {
     return;
@@ -230,8 +230,6 @@ async function createMap() {
         console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
         // zooming to the midpoint of the selected layer's visibility
         appState.view.goTo({ scale: 22500000, center: constants.default_center }); // re-zooming map the middle visibility rnage in to middle of the country
-
-
     } catch (e) {
         console.error('Could not create/load layer from item ID:', appState.inputItemID, e);
         hf.warnUser('Failed to create map for selected layer');
@@ -241,7 +239,6 @@ async function createMap() {
 /* 
 LOGIC FOR CREATING THE LIST OF FIELDS
 */
-
 function generateFieldsList() {
     ui.fieldsLabel.textContent = "Select a Field";
     
@@ -356,7 +353,8 @@ ui.generateButton.addEventListener("click", async () => {
             console.log("Error generating histogram:", err)
             testPanel.heading = `Error Generating Color Ramp Information`
         }
-        ui.bottomPanel.hidden = false;
+        ui.bottomPanel.hidden = false; // we show the bottom panel
+        document.querySelector('[data-action-id=ramp]').disabled = false; // enabling the color ramp tab once a histogram is created
     }   
 });
 
@@ -704,7 +702,7 @@ function handleActiveSliderThumb(){
             appState.activeSliderValue = ui.sliderElement.activeValue;
             const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
             console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
-            colorPicker.value = {
+            ui.colorPicker.value = {
                 'r': appState.colorStops[correspondingSliderThumb].color[0],
                 'g': appState.colorStops[correspondingSliderThumb].color[1],
                 'b': appState.colorStops[correspondingSliderThumb].color[2],
@@ -713,6 +711,41 @@ function handleActiveSliderThumb(){
         }
     }
 }
+
+
+ui.sliderElement.addEventListener('contextmenu', (event) => {
+    // 1. Prevent the default browser context menu from appearing
+    event.preventDefault(); 
+
+    if (typeof ui.sliderElement.activeValue === "number") {
+        if (ui.sliderElement.values.length == 2){
+            hf.warnUser('Must have at least 2 sliders before removing one')
+        } else {
+            // determining WHICH slider handle to remove
+            let removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+
+            // // Building new arrays.
+            const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
+            nextSliderValues.splice(removeIndex, 1); // and removing the right-clicked slider
+            
+            const nextColorStops = [...appState.colorStops];
+            nextColorStops.splice(removeIndex, 1); // and removing the right-clicked slider
+
+            appState.sliderValues = nextSliderValues;
+            appState.colorStops = nextColorStops;
+
+            // then updating DOM elements form the state 
+            ui.sliderElement.values = [...nextSliderValues];
+            ui.histogramElement.colorStops = [...nextColorStops];
+
+            // updating UI
+            updateUI();
+
+        }
+
+    }
+});
+
 
 // helper functiont to assign the correct event listener based on the input switch's mode
 function attachSliderListener() {
@@ -723,13 +756,7 @@ function attachSliderListener() {
     ui.sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease); 
     ui.sliderElement.removeEventListener("arcgisActiveValueChange", handleActiveSliderThumb) // changing the selected slider thumb
     
-    // we'll default to using continuous change, so we'll comment out the static response    
-    // this if-else handles how we should adjust the histogram & color swatch according to the switchInput
-    // if (appState.switchValue === "static") {
-    //     ui.sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
-    //     ui.sliderElement.addEventListener("arcgisChange", sliderHandler);
-    //     ui.sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
-    //     ui.sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
+    // reattaching event listeners
     ui.sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
     ui.sliderElement.addEventListener("arcgisInput", sliderHandler);
     ui.sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
