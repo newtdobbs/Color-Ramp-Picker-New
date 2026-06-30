@@ -590,16 +590,7 @@ async function initializeDialogForField() {
 
     // attaching the proper event listener based on the current value of the switch
     attachSliderListener();
-    
 
-    // Switch change handling
-    // updateSwitch.addEventListener("calciteSwitchChange", () => {
-    //     appState.switchValue = appState.switchValue === "static" ? "responsive" : "static";  // 'continuous' if it was 'discrete' when changed, otherwise default to 'discrete'
-    //     attachSliderListener(); // need to attach the proper listener based on the switch value
-    // });
-
-    // then we enable the switch for the user
-    // updateSwitch.disabled = false;
     ui.resetButton.disabled = false;
     ui.jsonCopy.disabled = false;
     
@@ -674,7 +665,7 @@ function showButtonsOnRelease() {
 }
 
 function handleColorPickerChange() {
-    if(!appState.activeSliderValue){
+    if(!appState.activeSliderValue){ // if there's no active slider thumb we'll warn the user & make no change
         hf.warnUser('no active slider value')
     } else {
         // hf.warnUser('active slider value is', appState.activeSliderValue);
@@ -689,7 +680,9 @@ function handleColorPickerChange() {
             ui.colorPicker.value.a // alpha
         ] 
         console.log('Color stops after change', appState.colorStops)
+        
         sliderHandler();
+        appState.activeSliderValue = null;
     }
 }
 
@@ -702,12 +695,13 @@ function handleActiveSliderThumb(){
             appState.activeSliderValue = ui.sliderElement.activeValue;
             const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
             console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
+            // populating the color picker with the slider's value
             ui.colorPicker.value = {
                 'r': appState.colorStops[correspondingSliderThumb].color[0],
                 'g': appState.colorStops[correspondingSliderThumb].color[1],
                 'b': appState.colorStops[correspondingSliderThumb].color[2],
-                'a': 100
-            };// populating the color picker with the slider's value
+                'a': appState.colorStops[correspondingSliderThumb].color[3] // this ensures the color's transparency is used by the picker
+             };
         }
     }
 }
