@@ -645,3 +645,22 @@ function determineSliderChanges(oldValues, newValues) {
         // iqr = q3 - q1;
         // maxValue = q3 + iqr * 1.5;
         // minValue = q1 - iqr * 1.5;
+
+
+
+// const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderThumbValue)
+// const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
+
+// console.log(`corresponding stop ${correspondingColorStopIndex}`, correspondingColorStop)
+
+// colorPicker.value = {
+    //     'r': correspondingColorStop.color[0],
+    //     'g': correspondingColorStop.color[1],
+    //     'b': correspondingColorStop.color[2],
+    // }
+    //     console.log('color picker value', colorPicker.value)
+//     appState.colorStops[correspondingColorStopIndex].color = [colorPicker.value.r, colorPicker.value.g, colorPicker.value.g] // using the color picker to update the state color stops
+//     // console.log('all color stops after custom inject', appState.colorStops)
+//     appState.lastCustomStops = [...appState.colorStops]; 
+//     updateUI(); // updating UI (histogram, swatch, map) to ingest the color picker's value
+//     // appState.lastCustomStops = [...appState.colorStops]; 

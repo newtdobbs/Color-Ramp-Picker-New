@@ -1,11 +1,11 @@
 /* 
 CONSTANTS
 */
-const default_center = [-94.66, 39.04]; // Kansas City as map view as its ~roughly~ central in US
-const default_scale = 35000000; // roughly the lower 48
+export const default_center = [-94.66, 39.04]; // Kansas City as map view as its ~roughly~ central in US
+export const default_scale = 35000000; // roughly the lower 48
 
 // ideal field types, leaving all options in for un-ommenting
-const goodFieldTypes = [
+export const goodFieldTypes = [
     "small-integer",
     "integer",
     "single",
@@ -25,8 +25,9 @@ const goodFieldTypes = [
     // "time-only",
     // "timestamp-offset"
 ];
+
 // ideal field value types, leaving all options in for un-ommenting
-const goodFieldValueTypes = [
+export const goodFieldValueTypes = [
   // "binary",
   // "coordinate",
   "count-or-amount",
