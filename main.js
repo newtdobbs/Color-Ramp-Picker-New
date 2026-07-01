@@ -328,7 +328,6 @@ ui.generateButton.addEventListener("click", async () => {
         // setting the heading and opening the dialog but with a loader
         
         ui.bottomPanel.hidden = false;
-        ui.bottomPanel.componentOnReady();
         ui.bottomPanel.loading = true;
         
         const testPanel = document.getElementById("test-panel")
@@ -340,19 +339,20 @@ ui.generateButton.addEventListener("click", async () => {
             // here we'll populate the dialog using the selected field's data distribution
             await initializeDialogForField()
             // desc.textContent = appState.description; // is now stored in state variable after initializing
-
+            
             // desc.slot = "content-bottom";
-
+            
             console.log("App state description", appState.description);
             
             ui.description.textContent = appState.description;
             // testPanel.appendChild(newDiv)
-            ui.bottomPanel.loading = false;
             
+            ui.bottomPanel.loading = false;
         } catch(err){
             console.log("Error generating histogram:", err)
             testPanel.heading = `Error Generating Color Ramp Information`
         }
+        await ui.bottomPanel.componentOnReady();
         ui.bottomPanel.hidden = false; // we show the bottom panel
         document.querySelector('[data-action-id=ramp]').disabled = false; // enabling the color ramp tab once a histogram is created
     }   
@@ -426,11 +426,11 @@ function initializeUI(){
     updateSwatch();
     updateButtons();
     buildDescription();
-    console.log('------------ INITIAL UI DEBUG ------------------'); // log for debug
-    console.log(`WE DEFAULT TO ${appState.symbologyMode} SYMBOLOGY MODE.`);
-    console.log('Slider stops are', appState.sliderValues);
-    console.log('color stops are', appState.colorStops);
-    console.log('----------------------------------------'); // log for debug
+    // console.log('------------ INITIAL UI DEBUG ------------------'); // log for debug
+    // console.log(`WE DEFAULT TO ${appState.symbologyMode} SYMBOLOGY MODE.`);
+    // console.log('Slider stops are', appState.sliderValues);
+    // console.log('color stops are', appState.colorStops);
+    // console.log('----------------------------------------'); // log for debug
 }
     
 /* 
@@ -443,10 +443,10 @@ function updateUI(){
     // updateDescription();
     updateSwatch();
     updateButtons();
-    console.log('------------ UPDATE UI DEBUG ------------------'); // log for debug
-    console.log('Slider stops are', appState.sliderValues);
-    console.log('color stops are', appState.colorStops);
-    console.log('----------------------------------------'); // log for debug
+    // console.log('------------ UPDATE UI DEBUG ------------------'); // log for debug
+    // console.log('Slider stops are', appState.sliderValues);
+    // console.log('color stops are', appState.colorStops);
+    // console.log('----------------------------------------'); // log for debug
 }
 
 function clearStateForNewField(){
@@ -602,6 +602,7 @@ async function initializeDialogForField() {
     console.error("Error creating histogram:", err);
   }
 }
+
 // reset button handling
 ui.resetButton.addEventListener("click",  () => {
     
@@ -612,10 +613,11 @@ ui.resetButton.addEventListener("click",  () => {
         appState.lastCustomStops = [...appState.colorStops];
         
         // then applying smart mapping defaults
-        ui.sliderElement.values = [...appState.defaultValues];
-        ui.histogramElement.colorStops = [...appState.defaultStops];
+        // ui.sliderElement.values = [...appState.defaultValues];
+        // ui.histogramElement.colorStops = [...appState.defaultStops];
         appState.sliderValues = [...appState.defaultValues];
         appState.colorStops = [...appState.defaultStops];
+        // updateButtons()
         
     // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
     } else {
@@ -629,7 +631,6 @@ ui.resetButton.addEventListener("click",  () => {
         }
     }
     
-    
     // we use the 'old' mode (before click) as the new button label 
     ui.resetButton.textContent = appState.symbologyMode;
     ui.resetButton.label = appState.symbologyMode;
@@ -641,6 +642,17 @@ ui.resetButton.addEventListener("click",  () => {
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 
     updateUI(); // finally we updateUI to reflect these changes in the map/histogram
+})
+
+ui.previousColorButton.addEventListener("click", () => {
+    console.log('Previous button clicked, color history:', appState.colorHistory)
+    if(appState.colorHistory.length > 1){ // sanity check to make sure there's a history of at least 2 colors
+        console.log('LAST color is ', appState.colorHistory.pop())
+        console.log('Second-to-last color is', appState.colorHistory.pop())
+        const previousColor = appState.colorHistory.pop() 
+        ui.colorPicker.value = previousColor // and this restores the previous color to the picker 
+         // ui.previousColorButton.disabled = true; // and we re-disable the previous color button
+    }
 })
 
 // hiding buttons when slider is being dragged
@@ -661,7 +673,7 @@ function showButtonsOnRelease() {
         resetButton.textContent = "Default";
         resetButton.label = "Default";
        }
-    console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
+    // console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 }
 
 function handleColorPickerChange() {
@@ -682,7 +694,7 @@ function handleColorPickerChange() {
         console.log('Color stops after change', appState.colorStops)
         
         sliderHandler();
-        appState.activeSliderValue = null;
+        ui.previousColorButton.disabled = ui.previousColorButton.disabled ? false : false;
     }
 }
 
@@ -692,6 +704,9 @@ ui.colorPicker.addEventListener("calciteColorPickerChange", handleColorPickerCha
 function handleActiveSliderThumb(){
     if (typeof ui.sliderElement.activeValue === "number") {
         if (appState.activeSliderValue != ui.sliderElement.activeValue) {   // this only occurs on thumb CHANGE
+            appState.colorHistory = []; // we'll reset the history of the color picker if the active slider changes
+            ui.previousColorButton.disabled = true; // and we'll disable the previous color button
+
             appState.activeSliderValue = ui.sliderElement.activeValue;
             const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
             console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
@@ -702,11 +717,12 @@ function handleActiveSliderThumb(){
                 'b': appState.colorStops[correspondingSliderThumb].color[2],
                 'a': appState.colorStops[correspondingSliderThumb].color[3] // this ensures the color's transparency is used by the picker
              };
+            appState.colorHistory.push(ui.colorPicker.value); // adding the color of a stop to the color history
         }
     }
 }
 
-
+// right click event listener to remove slider thumbs
 ui.sliderElement.addEventListener('contextmenu', (event) => {
     // 1. Prevent the default browser context menu from appearing
     event.preventDefault(); 
@@ -776,10 +792,11 @@ function sliderHandler() {
     // updating the last custom stops to use the current slider values
     appState.lastCustomValues = [...appState.sliderValues];
     appState.lastCustomStops = [...appState.colorStops];
+    appState.activeSliderValue = ui.sliderElement.activeValue;
 }
 
 function updateHistogram(){
-    console.log('updating histogram stops to:', appState.colorStops);
+    // console.log('updating histogram stops to:', appState.colorStops);
     ui.histogramElement.colorStops = appState.colorStops; // pulling the histogram's stops from the state variable
 }
 
@@ -817,7 +834,7 @@ function updateRenderer() {
         }));
     }
 
-    console.log('Color variable now has the following stops', colorVariable.stops);
+    // console.log('Color variable now has the following stops', colorVariable.stops);
         
     renderer.visualVariables[colorVarIndex] = colorVariable;
     appState.layer.renderer = renderer; // updating the state variable's renderer

@@ -24,7 +24,7 @@
             <calcite-action data-action-id="ramp" icon="color-correction" text="Color Ramp" disabled text-enabled></calcite-action>
           </calcite-action-bar>
 
-          <calcite-block heading="Layer:" scale="l" data-block-id="field" expanded id="field-block">
+          <calcite-block heading="Layer:" data-block-id="field" expanded id="field-block">
             <calcite-input placeholder="AGOL item ID" id="input"></calcite-input>
             <calcite-label><!-- empty label for spacing --></calcite-label>
             <calcite-autocomplete name="layers" placeholder="" id="layer-selector"></calcite-autocomplete>
@@ -33,19 +33,20 @@
             <calcite-button id="generate-btn" width="full">Generate Histogram</calcite-button>
           </calcite-block>
           
-          <calcite-block heading="Basemaps" scale="l" data-block-id="basemaps" hidden>
-            <arcgis-basemap-gallery></arcgis-basemap-gallery>
+          <calcite-block heading="Basemaps" data-block-id="basemaps" hidden>
+            <arcgis-basemap-gallery width="full"></arcgis-basemap-gallery>
           </calcite-block>
           
 
           <calcite-block heading="Color Ramp Information" scale="l" data-block-id="ramp" id="ramp-block" hidden>
             <div style="display:flex; flex-direction:column;gap:10px;align-items:center;justify-content:center;">
               <div id="description"></div>
-              <calcite-label>Active Color Stop</calcite-label> 
+              <!-- <calcite-label>Active Color Stop</calcite-label>  -->
+              <calcite-fab id="previous-color-button" disabled label="Undo Change" text-enabled text="Undo Change" icon="undo"></calcite-fab>
               <calcite-color-picker alpha-channel id="color-picker" format="rgba"></calcite-color-picker>
               <calcite-label></calcite-label> 
-              <calcite-button label="Default" slot="content-end" round id="reset-button" width="full" disabled>Default</calcite-button>
-              <calcite-button label="Copy JSON" slot="content-end" round id="copy-json" width="full" disabled>Copy JSON</calcite-button>
+              <calcite-button label="Default" round id="reset-button" width="full" disabled>Default</calcite-button>
+              <calcite-button label="Copy JSON" round id="copy-json" width="full" disabled>Copy JSON</calcite-button>
             </div>
           </calcite-block> 
         
@@ -54,6 +55,7 @@
       
       <div class="map-frame" id="main-map"></div>
       <calcite-shell-panel resizable slot="panel-bottom" id="bottom-panel" hidden height="l">
+        <!-- <calcite-loader id="bottom-loader"></calcite-loader> -->
         <calcite-panel id="test-panel">
           <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
             <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal"></arcgis-histogram>
