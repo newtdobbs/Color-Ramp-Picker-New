@@ -1,3 +1,4 @@
+// Role: map/view/layer creation.
 const Map = await $arcgis.import("@arcgis/core/Map.js");
 const MapView = await $arcgis.import("@arcgis/core/views/MapView.js");
 const FeatureLayer = await $arcgis.import("@arcgis/core/layers/FeatureLayer.js");
@@ -35,7 +36,7 @@ export async function createBasemapOnlyView() {
 /* 
 LOGIC FOR CREATING A MAP VIEW
 */
-export async function createMap() {
+export async function createMapForSelectedLayer() {
     // console.log('app state map', appState.map)  // log for debug
     appState.map.removeAll(); // first removing all layers from the current view
     try {
@@ -44,25 +45,19 @@ export async function createMap() {
             layerId: appState.layerSelection.id
         });
         await layer.load();
+
+        // resetting the layer's view scale
+        layer.minScale = 500000000;
+        layer.maxScale = 0;
         // console.log('layer to populate in map', layer); // log for debug
         appState.map.add(layer);
         appState.layer = layer;
+        appState.layer.maxScale = layer.maxScale;
+        const midScale = Math.floor((appState.layer.minScale + appState.layer.maxScale) / 2);
 
-        // zooming to the midpoint of the selected layer's visibility
-        console.log(`Layer scale is from ${appState.layer.minScale} ${appState.layer.maxScale}`);
-
-        let layerMinScale;
-        if (appState.layer.minScale === 0){
-            layerMinScale = default_scale;
-        } else {
-            layerMinScale = appState.layer.minScale;
-        }
-        const midScale = Math.floor((layerMinScale + appState.layer.maxScale) / 2);
-  
         console.log(`Resetting view for Layer to mid scale of: ${midScale}`); // log for debug
-        appState.view.goTo({ scale: midScale, center: default_center }); // re-zooming map the middle visibility rnage in to middle of the country
-
-
+        // zooming to the midpoint of the selected layer's visibility
+        appState.view.goTo({ scale: 22500000, center: constants.default_center }); // re-zooming map the middle visibility rnage in to middle of the country
     } catch (e) {
         console.error('Could not create/load layer from item ID:', appState.inputItemID, e);
         hf.warnUser('Failed to create map for selected layer');

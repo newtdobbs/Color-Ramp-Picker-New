@@ -1,18 +1,12 @@
-// Role: field filtering and raw value fetch.
-import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
-const Query = await $arcgis.import("@arcgis/core/rest/support/Query.js");
+// Role: field list DOM rendering.
+export function renderFieldList(){
+    ui.fieldsLabel.textContent = "Select a Field";
 
-/* 
-LOGIC FOR CREATING THE LIST OF FIELDS
-*/
-export function getSelectableFields() {
-    fieldsLabel.textContent = "Select a Field";
-    
     const fieldsList = document.createElement("calcite-list");
     fieldsList.innerHTML = ""; // removing any preexisting fields
     fieldsList.label = "Select a field";
     fieldsList.selectionMode = "single"; 
-    fieldsLabel.appendChild(fieldsList);
+    ui.fieldsLabel.appendChild(fieldsList);
 
     // Can log all the fields here for debug
     // console.log("All fields:");
@@ -21,7 +15,7 @@ export function getSelectableFields() {
     // });
 
     appState.layer.fields.forEach(field => {
-        if (goodFieldTypes.includes(field.type) && goodFieldValueTypes.includes(field.valueType)) {
+        if (constants.goodFieldTypes.includes(field.type) && constants.goodFieldValueTypes.includes(field.valueType)) {
             const listItem = document.createElement("calcite-list-item");
             listItem.label = field.alias;
             listItem.scale = "s";
@@ -55,29 +49,6 @@ export function getSelectableFields() {
     appState.fieldsList = fieldsList; // adding the fields list to the global state
 }
 
-// NEED TO THINK REALLY CRITICALLY ABOUT WHETHER WE WANT TO CLEAN THE FIELD VALUES WTIHIN THIS FUNCTION
-export async function queryFieldValues() {
-    try {
-        
-        const t0 = performance.now(); // log for debug
-        const results = await queryAllFeatures({
-            url: appState.layer.parsedUrl.path,
-            outFields: appState.field.name,
-            returnGeometry: false,
-        });
-        const t1 = performance.now(); // log for debug
-        console.log(`Querying all records records took ${Math.floor(t1 - t0)} milliseconds:`, results); // log for debug
-        const values = results.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
-        // const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort((a, b) => a - b); // maybe uncomment
-
-        return values
-        
-        
-    } catch (err) {
-        hf.warnUser(`Error querying all features for field:`, );
-        console.error('err', err);
-        return null;
-    }
+export function clearFieldList(){
+    
 }
-
-

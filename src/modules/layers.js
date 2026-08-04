@@ -1,3 +1,5 @@
+// Role: AGOL item + service metadata.
+
 const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
 
@@ -43,10 +45,10 @@ export async function getServiceLayers(itemId) {
     }
 }
 
-/*
-LOGIC FOR LAYER SELECTOR
-The dropdown list should be populated AFTER the item ID is input
-*/
+export function normalizeItemIdInput(){
+
+}
+
 export function createDropdownForService() {
     layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
     layerSelector.placeholder = 'Select a Layer';
@@ -80,4 +82,43 @@ export function createDropdownForService() {
 
     // at the end here, we'll create the map for the main-map div
     // createMap();
+}
+
+async function getServiceLayers(itemId) {
+    // regex check for AGOL item ID format (32 hex chars)
+
+    const idPattern = /^[a-f0-9]{32}$/i;
+    if (idPattern.test(itemId)) {
+        try{
+            const portalItem = new PortalItem({ id: itemId });
+            await portalItem.load();
+
+            console.log('portal item title:', portalItem.title)
+
+            // Request the service metadata
+            const serviceUrl = portalItem.url;
+            const response = await esriRequest(serviceUrl, {
+                query: { f: "json" }
+            });
+
+            const layersInfo = response.data.layers || [];
+
+            // console.log("layers info: ", layersInfo); // log for debug
+
+            return {
+                title: portalItem.title,
+                layers: layersInfo
+            };
+
+        } catch (error) {
+            // Code to handle the error
+            console.warn(`An error occurred while fetching item ${itemId}, ${error.message}`);
+            hf.warnUser(`An error occurred while fetching item ${itemId}, ${error.message}`);
+            return null;
+        }
+    } else {
+        console.warn(`ID ${itemId} failed regex format check`);
+        hf.warnUser(`ID ${itemId} failed regex format check`);
+        return null;
+    }
 }

@@ -1,6 +1,4 @@
-/* 
-CONSTANTS
-*/
+// Role: static configuration.
 export const default_center = [-94.66, 39.04]; // Kansas City as map view as its ~roughly~ central in US
 export const default_scale = 35000000; // roughly the lower 48
 

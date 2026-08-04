@@ -1,7 +1,5 @@
-/* 
-GLOBAL APP STATE
-This should hold info about the map, the chosen feature layer, the selected field, the histogram, etc
-*/
+// Role: state object and safe accessor.
+
 export const appState = {
     activeWidget: "layers", // initializing active widget to layers so that its open on page load
     map: null, // the map within the main map div
@@ -31,4 +29,8 @@ export const appState = {
     colorPickerValue: null,
     activeSliderValue: null,
     colorHistory: []
+}
+
+export function getState(){
+    return appState;
 }

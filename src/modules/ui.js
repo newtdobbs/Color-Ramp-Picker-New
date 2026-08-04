@@ -21,3 +21,4 @@ export const resetButton = document.getElementById("reset-button");
 export const buttonsPanel = document.getElementById("right-buttons-panel");
 export const jsonCopy = document.getElementById("copy-json");
 export const colorPicker = document.getElementById("color-picker");
+export const actionBar = document.querySelector("calcite-action-bar");
