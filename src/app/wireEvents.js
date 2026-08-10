@@ -1,7 +1,11 @@
-import * as ui from "./src/modules/ui"
+import * as ui from "../modules/ui.js"
+import { appState } from "../state/store";
+import { getServiceLayers, createDropdownForService } from "../modules/layers";
+import { initializeDialogForField } from "./fieldWorkflow";
+
 
 // Role: register all listeners in one place.
-export function wireEvents(){
+export async function wireEvents(){
    
     ui.actionBar.addEventListener("click", wireActionBarClick);
         
@@ -19,27 +23,44 @@ export function wireEvents(){
 
 }
 
-function wireActionBarClick(target){
-    let activeWidget = "field";
-
-    if (target.tagName !== "CALCITE-ACTION") {
+function wireActionBarClick(event){
+    const action = event.target.closest("calcite-action");
+    if (!action) {
         return;
     }
-    if (activeWidget) {
-        document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
-        document.querySelector(`[data-block-id=${activeWidget}]`).hidden = true;
-    }
-    const nextWidget = target.dataset.actionId;
-    console.log("Next widget is:", nextWidget)
-    if (nextWidget !== activeWidget) {
-        document.querySelector(`[data-action-id=${nextWidget}]`).active = true;
-        document.querySelector(`[data-block-id=${nextWidget}]`).hidden = false;
-        document.querySelector(`[data-block-id=${nextWidget}]`).expanded = true;
 
-        activeWidget = nextWidget;
-    } else {
-        activeWidget = null;
+    const nextWidget = action.dataset.actionId;
+    if (!nextWidget) {
+        return;
     }
+
+    // If clicking the already-open tab, collapse it.
+    if (appState.activeWidget === nextWidget) {
+        action.active = false;
+        const activeBlock = document.querySelector(`[data-block-id=${nextWidget}]`);
+        if (activeBlock) {
+            activeBlock.hidden = true;
+        }
+        appState.activeWidget = null;
+        return;
+    }
+
+    // Enforce a single open tab by resetting every action/block first.
+    document.querySelectorAll("calcite-action-bar calcite-action[data-action-id]").forEach((actionEl) => {
+        actionEl.active = false;
+    });
+    document.querySelectorAll("[data-block-id]").forEach((blockEl) => {
+        blockEl.hidden = true;
+    });
+
+    action.active = true;
+    const nextBlock = document.querySelector(`[data-block-id=${nextWidget}]`);
+    if (nextBlock) {
+        nextBlock.hidden = false;
+        nextBlock.expanded = true;
+    }
+
+    appState.activeWidget = nextWidget;
 }
 
 function wireJSONCopyButton(){
@@ -98,7 +119,7 @@ function wireResetButton(){
 
 }
 
-export function wireInputBox(){
+export async function wireInputBox(){
     if (event.key === "Enter") { 
         event.preventDefault(); // we want to avoid whatever normally happens with the 'Enter' key
 
@@ -136,67 +157,31 @@ export function wireInputBox(){
     }
 };
 
-async function wireGenerateButton(){
-    
-    // error handling if no field is selected
-    if(!appState.field){
-        hf.warnUser('Select a field from the fields list')
-        return
-    } else {
-        
-        // otherwise, closing any pre-existing dialog so we can re-generate its contents
-        if (ui.bottomPanel.hidden === false){
-            // bottomPanel.textContent = "";    
-            ui.bottomPanel.hidden = true;
-        }
-        
-        // resertting the dialog
-        // bottomPanel.textContent = "";  
-        
-        //if its non-numeric warn user
-        if(!constants.goodFieldTypes.includes(appState.field.type)){
-            hf.warnUser("Please ensure the selected field is one of the following types: small-integer, integer,  single,  double,  long,  string, big-integer.")
-            appState.field = null;
-            return
-        }
-        // // make sure its not just a Geoid, uniqueid, make sure its a DATA field
-        if(!constants.goodFieldValueTypes.includes(appState.field.valueType)){
-            hf.warnUser("Please ensure the selected field is one of the following value types:  count-or-amount, currency")
-            appState.field = null;
-            return
-        }   
-        
-        // setting the heading and opening the dialog but with a loader
-        
-        ui.bottomPanel.hidden = false;
-        ui.bottomPanel.componentOnReady();
-        ui.bottomPanel.loading = true;
-        
-        const testPanel = document.getElementById("test-panel")
-        try {
-            // updating the dialog header
-            testPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`
-            testPanel.description = `Selected Layer: ${appState.layer.title}`
-            
-            // here we'll populate the dialog using the selected field's data distribution
-            await initializeDialogForField()
-            // desc.textContent = appState.description; // is now stored in state variable after initializing
-            
-            // desc.slot = "content-bottom";
-            
-            console.log("App state description", appState.description);
-            
-            ui.description.textContent = appState.description;
-            // testPanel.appendChild(newDiv)
-            ui.bottomPanel.loading = false;
-            
-        } catch(err){
-            console.log("Error generating histogram:", err)
-            testPanel.heading = `Error Generating Color Ramp Information`
-        }
-        ui.bottomPanel.hidden = false; // we show the bottom panel
-        document.querySelector('[data-action-id=ramp]').disabled = false; // enabling the color ramp tab once a histogram is created
-    }   
+async function wireGenerateButton() {
+	if (!appState.field) {
+		hf.warnUser("Select a field from the fields list");
+		return;
+	}
+
+	ui.bottomShell.hidden = false;
+	ui.bottomShell.loading = true;
+
+	try {
+		ui.bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
+		ui.bottomPanel.description = `Selected Layer: ${appState.layer.title}`;
+
+        console.log("Initializing dialog for field")
+		await initializeDialogForField();
+        console.log("DONE initializing dialog")
+	} catch (error) {
+		console.log("Error generating histogram:", error);
+		ui.bottomPanel.heading = "Error Generating Color Ramp Information";
+	} finally {
+		ui.bottomShell.loading = false;
+		ui.bottomShell.hidden = false;
+	}
+
+	document.querySelector("[data-action-id=ramp]").disabled = false;
 }
 
 export function unwireEvents(){
