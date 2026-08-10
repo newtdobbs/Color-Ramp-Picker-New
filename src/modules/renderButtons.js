@@ -1,5 +1,14 @@
+import * as ui from "./ui";
+import { appState } from "../state/store";
+import { sliderHandler } from "./slider";
+
 export function renderAddStopButtons(){
-    
+    if (!Array.isArray(appState.sliderValues) || appState.sliderValues.length < 2) {
+        clearAddStopButtons();
+        return;
+    }
+
+    updateButtons();
 }
 
 // this will hide stop buttons while a slider is being dragged
@@ -18,14 +27,19 @@ export function showAddStopButtons(){
         appState.symbologyMode = "Custom";
     
         // and we need to offer the a return to default mode in the button's label
-        resetButton.textContent = "Default";
-        resetButton.label = "Default";
+        ui.resetButton.textContent = "Default";
+        ui.resetButton.label = "Default";
        }
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 }
 
 export function clearAddStopButtons(){
-    
+    if (!ui.swatch) {
+        return;
+    }
+
+    appState.buttons.forEach(button => button.remove());
+    appState.buttons = [];
 }
 
 export function createButton(buttonValue){

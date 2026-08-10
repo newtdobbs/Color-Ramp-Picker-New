@@ -1,4 +1,9 @@
 // Role: field list DOM rendering.
+import { appState } from "../state/store";
+import * as ui from "./ui";
+import * as constants from "./constants";
+import * as hf from "../helperFunctions";
+
 export function renderFieldList(){
     ui.fieldsLabel.textContent = "Select a Field";
 
@@ -50,5 +55,6 @@ export function renderFieldList(){
 }
 
 export function clearFieldList(){
-    
+    ui.fieldsLabel.textContent = "";
+    appState.fieldsList = null;
 }

@@ -1,9 +1,19 @@
+import * as ui from "./ui";
+import { appState } from "../state/store";
+import * as hf from "../helperFunctions";
+import { hideAddStopButtons, showAddStopButtons } from "./renderButtons";
+import { updateRampUI } from "../app/rampWorkflow";
+
+function handleActiveSliderThumb() {
+    appState.activeSliderValue = ui.sliderElement.activeValue;
+}
+
 // Role: slider behavior and stop-index integrity.
 export function attachSliderListeners(){
     // reattaching event listeners
-    ui.sliderElement.addEventListener("arcgisInput", hideButtonsOnDrag); // fires when a slider is clicked/dragged
+    ui.sliderElement.addEventListener("arcgisInput", hideAddStopButtons); // fires when a slider is clicked/dragged
     ui.sliderElement.addEventListener("arcgisInput", sliderHandler);
-    ui.sliderElement.addEventListener("arcgisChange", showButtonsOnRelease); // fires when a slider is released
+    ui.sliderElement.addEventListener("arcgisChange", showAddStopButtons); // fires when a slider is released
     ui.sliderElement.addEventListener("arcgisActiveValueChange",  handleActiveSliderThumb)
 }
 
@@ -11,17 +21,59 @@ export function detachSliderListeners(){
     // Remove any existing listeners to avoid duplicates
     ui.sliderElement.removeEventListener("arcgisChange", sliderHandler);
     ui.sliderElement.removeEventListener("arcgisInput", sliderHandler);
-    ui.sliderElement.removeEventListener("arcgisInput", hideButtonsOnDrag);
-    ui.sliderElement.removeEventListener("arcgisChange", showButtonsOnRelease); 
+    ui.sliderElement.removeEventListener("arcgisInput", hideAddStopButtons);
+    ui.sliderElement.removeEventListener("arcgisChange", showAddStopButtons); 
     ui.sliderElement.removeEventListener("arcgisActiveValueChange", handleActiveSliderThumb) // changing the selected slider thumb
 }
 
 export function syncStopsFromSlider(){
-    
+    appState.sliderValues = [...ui.sliderElement.values];
+    if (!Array.isArray(appState.colorStops)) {
+        appState.colorStops = appState.sliderValues.map(value => ({ color: [0, 0, 0], value }));
+        return;
+    }
+
+    appState.colorStops = appState.sliderValues.map((value, index) => {
+        const existing = appState.colorStops[Math.min(index, appState.colorStops.length - 1)];
+        const color = existing && Array.isArray(existing.color) ? [...existing.color] : [0, 0, 0];
+        return { color, value };
+    });
 }
 
-export function addStopAtValue(){
-    
+export function addStopAtValue(newValue){
+    if (typeof newValue !== "number" || Number.isNaN(newValue)) {
+        return false;
+    }
+
+    const values = [...(appState.sliderValues || [])];
+    const stops = [...(appState.colorStops || [])];
+    if (!values.length || stops.length < 2) {
+        return false;
+    }
+
+    let insertIndex = values.findIndex(value => value > newValue);
+    if (insertIndex === -1) {
+        insertIndex = values.length;
+    }
+
+    const lowerStop = stops[Math.max(0, insertIndex - 1)] || stops[0];
+    const upperStop = stops[Math.min(insertIndex, stops.length - 1)] || stops[stops.length - 1];
+    const denom = (upperStop.value - lowerStop.value) || 1;
+    const fraction = (newValue - lowerStop.value) / denom;
+    const color = [
+        Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
+        Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
+        Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
+    ];
+
+    values.splice(insertIndex, 0, newValue);
+    stops.splice(insertIndex, 0, { color, value: newValue });
+
+    appState.sliderValues = values;
+    appState.colorStops = stops;
+    ui.sliderElement.values = [...values];
+    updateRampUI();
+    return true;
 }
 
 export function removeSliderStop(){
@@ -62,27 +114,40 @@ export function removeSliderStop(){
 }
 
 export function removeActiveStop(){
-    
+    const removeIndex = getActiveStopIndex();
+    if (removeIndex === -1) {
+        return false;
+    }
+
+    if (appState.sliderValues.length <= 2) {
+        hf.warnUser("Must have at least 2 sliders before removing one");
+        return false;
+    }
+
+    appState.sliderValues = appState.sliderValues.filter((_, index) => index !== removeIndex);
+    appState.colorStops = appState.colorStops.filter((_, index) => index !== removeIndex);
+    ui.sliderElement.values = [...appState.sliderValues];
+    ui.histogramElement.colorStops = [...appState.colorStops];
+    updateRampUI();
+    return true;
 }
 export function getActiveStopIndex(){
-    
+    const activeValue = ui.sliderElement.activeValue;
+    if (typeof activeValue !== "number") {
+        return -1;
+    }
+    return (appState.sliderValues || []).findIndex(value => value === activeValue);
 }
 
 export function sliderHandler() {
     // if a slider moves, we'll provide the option to reset defaults
     // console.log(`Current state of reset is ${resetButton.textContent}`) // log for debug
 
-    appState.sliderValues = [...ui.sliderElement.values]; // updating state variables to just pull from there, this fixes bug where color stops were one step behind the sliderValues
-
-    const newStops = appState.colorStops.map((colorStop, i) => ({ // looping over the state variable color stops
-        ...colorStop,
-        value: appState.sliderValues[i] // these are the NEW values currently in the slider
-    })).sort((a, b) => a.value - b.value); // this resets the slider indices in case sliders cross over
-    appState.colorStops = newStops; // assigning the new slider stops to the state variable 
+    syncStopsFromSlider();
     // appState.sliderValues = [...ui.sliderElement.values]; // updating the global state so we can just pull from there 
 
     // finally calling updateUI, which should only be using state variables
-    updateUI(); 
+    updateRampUI(); 
 
     // updating the last custom stops to use the current slider values
     appState.lastCustomValues = [...appState.sliderValues];

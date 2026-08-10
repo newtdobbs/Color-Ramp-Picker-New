@@ -1,97 +1,201 @@
-import { clearFieldList, renderFieldList } from "../modules/renderFieldList";
-import * as stats from "../modules/statistics.js";
-import * as state from '../state/actions.js';
-import * as field from '../modules/fields.js';
-import * as symbology from '../modules/symbology.js';
+import * as ui from "../modules/ui";
+import * as hf from "../helperFunctions";
+import { appState } from "../state/store";
+import { initializeDialogForField } from "./fieldWorkflow";
+import { buildAndStoreDescription, renderDescription } from "./descriptionWorkflow";
 
-// Role: ramp lifecycle and interactions.
-export function initializeRampForField(){
-    // resetFieldState + resetRampState
-    state.resetFieldState();
-    state.resetRampState();
+function syncStopsFromSliderValues() {
+    const sliderValues = [...ui.sliderElement.values];
+    appState.sliderValues = sliderValues;
 
-    // prepareRampUiForLoading
-    prepareRampUIForLoading();
-
-    // values = queryFieldValues
-    const values = field.queryFieldValues();
-    
-    // stats = calculateStatsForValues(values)
-    const stats = calculateFieldValues(allValues)
-    
-    // guard sparse count, if there's <20 observations we do nothing
-    if(appState.stats.count < 20){
-        hf.warnUser(`With only ${appState.stats.count} observtaions, for now we'll refrain from calculating statistics`)
-        return    
+    const previousStops = Array.isArray(appState.colorStops) ? appState.colorStops : [];
+    if (previousStops.length === sliderValues.length) {
+        appState.colorStops = previousStops.map((stop, index) => ({
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
+            value: sliderValues[index]
+        }));
+    } else {
+        appState.colorStops = sliderValues.map((value, index) => {
+            const fallbackStop = previousStops[Math.min(index, Math.max(previousStops.length - 1, 0))];
+            const fallbackColor = fallbackStop && Array.isArray(fallbackStop.color) ? [...fallbackStop.color] : [0, 0, 0];
+            return {
+                color: fallbackColor,
+                value
+            };
+        });
     }
 
-    // setStats(stats)
-    state.setStats(stats);
-
-    // renderer = createInitialRenderer
-    const renderer = symbology.createInitialRenderer();
-
-    // sliderValues = calculateInitialStops(stats)
-    const sliderValues = calculateInitialStops(stats);
-    state.setSliderValues(sliderValues);
-
-    // configureSliderRange + configureSliderBehavior
-
-    // histogram/colorStops = createInitialColorStops
-    // defaultStops/defaultValues = createDefaultStops/buildDefaultStopValues
-    // set all state via actions
-    // attachSliderListeners
-    // renderAddStopButtons + render swatch/histogram
-    // buildAndStoreDescription + renderDescription
-    // finalizeRampUiReady
-    
+    appState.lastCustomValues = [...appState.sliderValues];
+    appState.lastCustomStops = appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] }));
 }
 
-export function handleSliderInput(){
-    
+function updateHistogramFromState() {
+    if (!ui.histogramElement) {
+        return;
+    }
+
+    ui.histogramElement.colorStops = appState.colorStops.map(stop => ({
+        color: [...stop.color],
+        value: stop.value
+    }));
 }
 
-export function handleSliderChange(){
-    
+function updateRendererFromState() {
+    if (!appState.layer || !appState.layer.renderer || typeof appState.layer.renderer.clone !== "function") {
+        return;
+    }
+
+    const renderer = appState.layer.renderer.clone();
+    const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");
+    if (colorVarIndex === -1) {
+        return;
+    }
+
+    const colorVariable = renderer.visualVariables[colorVarIndex].clone();
+    colorVariable.stops = appState.colorStops.map(stop => ({
+        color: stop.color,
+        value: stop.value
+    }));
+    renderer.visualVariables[colorVarIndex] = colorVariable;
+    appState.layer.renderer = renderer;
 }
 
-export function handleResetToggle(){
-    
+function updateSwatchFromState() {
+    if (!appState.stats || !Array.isArray(appState.colorStops) || !appState.colorStops.length) {
+        ui.swatch.style.background = "";
+        return;
+    }
+
+    const span = appState.stats.max - appState.stats.min || 1;
+    const gradientParts = appState.colorStops.map(stop => {
+        const percent = ((stop.value - appState.stats.min) / span) * 100;
+        return `rgb(${stop.color.join(",")}) ${percent}%`;
+    });
+
+    ui.swatch.style.background = `linear-gradient(to right, ${gradientParts.join(", ")})`;
 }
 
-export function handleCopyJson(){
-    
+// Role: ramp lifecycle and interactions.
+export async function initializeRampForField() {
+    if (!appState.field) {
+        hf.warnUser("Select a field from the fields list");
+        return false;
+    }
+
+    await initializeDialogForField();
+    initializeRampUI();
+    return true;
 }
 
-export function handleRemoveStop(){
-    
+export function handleSliderInput() {
+    if (!Array.isArray(ui.sliderElement.values) || !ui.sliderElement.values.length) {
+        return;
+    }
+
+    syncStopsFromSliderValues();
+    updateRampUI();
 }
 
-export function initializeRampUI(){
-    updateHistogram();
-    updateRenderer();
-    updateSwatch();
-    updateButtons();
-    buildDescription();
-    console.log('------------ INITIAL UI DEBUG ------------------'); // log for debug
-    console.log(`WE DEFAULT TO ${appState.symbologyMode} SYMBOLOGY MODE.`);
-    console.log('Slider stops are', appState.sliderValues);
-    console.log('color stops are', appState.colorStops);
-    console.log('----------------------------------------'); // log for debug
+export function handleSliderChange() {
+    if (!Array.isArray(ui.sliderElement.values) || !ui.sliderElement.values.length) {
+        return;
+    }
+
+    syncStopsFromSliderValues();
+    updateRampUI();
 }
 
-/* 
+export function handleResetToggle() {
+    const defaultStops = appState.defaultStops || [];
+    const defaultValues = appState.defaultValues || [];
+
+    if (!defaultStops.length || !defaultValues.length) {
+        hf.warnUser("No default symbology is available for reset.");
+        return false;
+    }
+
+    if (appState.symbologyMode === "Custom") {
+        appState.lastCustomValues = [...appState.sliderValues];
+        appState.lastCustomStops = appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] }));
+
+        appState.sliderValues = [...defaultValues];
+        appState.colorStops = defaultStops.map(stop => ({ ...stop, color: [...stop.color] }));
+        appState.symbologyMode = "Default";
+        ui.resetButton.textContent = "Custom";
+        ui.resetButton.label = "Custom";
+    } else {
+        if (!appState.lastCustomValues || !appState.lastCustomStops || !appState.lastCustomValues.length) {
+            hf.warnUser("No custom symbology is stored to restore.");
+            return false;
+        }
+
+        appState.sliderValues = [...appState.lastCustomValues];
+        appState.colorStops = appState.lastCustomStops.map(stop => ({ ...stop, color: [...stop.color] }));
+        appState.symbologyMode = "Custom";
+        ui.resetButton.textContent = "Default";
+        ui.resetButton.label = "Default";
+    }
+
+    ui.sliderElement.values = [...appState.sliderValues];
+    updateRampUI();
+    return true;
+}
+
+export function handleCopyJson() {
+    if (!appState.layer || !appState.layer.renderer) {
+        hf.warnUser("No renderer is available to copy.");
+        return false;
+    }
+
+    const rendererJSON = JSON.stringify(appState.layer.renderer, null, "\t");
+    try {
+        navigator.clipboard.writeText(rendererJSON);
+        hf.warnUser(`JSON for color ramp with ${appState.colorStops.length} stops copied to clipboard.`, "success", true);
+        return true;
+    } catch (error) {
+        console.error("Failed to copy JSON:", error);
+        return false;
+    }
+}
+
+export function handleRemoveStop() {
+    const activeValue = ui.sliderElement.activeValue;
+    if (typeof activeValue !== "number") {
+        hf.warnUser("Select a slider stop before removing it.");
+        return false;
+    }
+
+    if (!Array.isArray(appState.sliderValues) || appState.sliderValues.length <= 2) {
+        hf.warnUser("At least two slider stops are required.");
+        return false;
+    }
+
+    const removeIndex = appState.sliderValues.findIndex(value => value === activeValue);
+    if (removeIndex === -1) {
+        hf.warnUser("Could not find the selected stop to remove.");
+        return false;
+    }
+
+    appState.sliderValues = appState.sliderValues.filter((_, index) => index !== removeIndex);
+    appState.colorStops = appState.colorStops.filter((_, index) => index !== removeIndex);
+    ui.sliderElement.values = [...appState.sliderValues];
+
+    updateRampUI();
+    return true;
+}
+
+export function initializeRampUI() {
+    updateRampUI();
+    buildAndStoreDescription();
+    renderDescription();
+}
+
+/*
 OVERALL FUNCTION TO UPDATE ALL UI
 we don't need to update the description when a slider is moved
 */
-export function updateRampUI(){
-    updateHistogram();
-    updateRenderer();
-    // updateDescription();
-    updateSwatch();
-    updateButtons();
-    console.log('------------ UPDATE UI DEBUG ------------------'); // log for debug
-    console.log('Slider stops are', appState.sliderValues);
-    console.log('color stops are', appState.colorStops);
-    console.log('----------------------------------------'); // log for debug
+export function updateRampUI() {
+    updateHistogramFromState();
+    updateRendererFromState();
+    updateSwatchFromState();
 }

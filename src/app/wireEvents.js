@@ -200,5 +200,10 @@ async function wireGenerateButton(){
 }
 
 export function unwireEvents(){
-    
+    ui.actionBar.removeEventListener("click", wireActionBarClick);
+    ui.jsonCopy.removeEventListener("click", wireJSONCopyButton);
+    ui.resetButton.removeEventListener("click", wireResetButton);
+    ui.colorPicker.removeEventListener("calciteColorPickerChange", wireColorPickerChange);
+    ui.generateButton.removeEventListener("click", wireGenerateButton);
+    ui.inputBox.removeEventListener("keydown", wireInputBox);
 }

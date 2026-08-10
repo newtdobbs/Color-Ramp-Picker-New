@@ -1,3 +1,6 @@
+import * as ui from "../modules/ui";
+import { appState } from "./store";
+
 export function setActiveWidget(activeWidget){
     appState.activeWidget = activeWidget;
 }
@@ -47,11 +50,43 @@ export function setSymbologyMode(symbologyMode){
 }
 
 export function resetFieldState(){
-
+    appState.field = null;
+    appState.stats = null;
+    appState.description = null;
+    appState.fieldsList = null;
 }
 
 export function resetRampState(){
+    appState.sliderValues = null;
+    appState.colorStops = null;
+    appState.buttons = [];
+    appState.defaultValues = null;
+    appState.defaultStops = null;
+    appState.lastCustomValues = null;
+    appState.lastCustomStops = null;
+    appState.activeSliderValue = null;
+    appState.colorHistory = [];
+    appState.symbologyMode = "Custom";
 
+    if (ui.description) {
+        ui.description.textContent = "";
+    }
+    if (ui.swatch) {
+        ui.swatch.innerHTML = "";
+        ui.swatch.style.background = "";
+    }
+    if (ui.resetButton) {
+        ui.resetButton.disabled = true;
+        ui.resetButton.textContent = "Default";
+        ui.resetButton.label = "Default";
+    }
+    if (ui.jsonCopy) {
+        ui.jsonCopy.disabled = true;
+    }
+    if (ui.histogramElement) {
+        ui.histogramElement.colorStops = [];
+        ui.histogramElement.bins = [];
+    }
 } 
 
 export function resetAppState(){

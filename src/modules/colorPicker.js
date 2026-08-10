@@ -1,6 +1,19 @@
+import * as ui from "./ui";
+import { appState } from "../state/store";
+import * as hf from "../helperFunctions";
+import { sliderHandler } from "./slider";
+
 // Role: color picker behavior.
 export function attachColorPickerListener(){
+    if (!ui.colorPicker || !ui.sliderElement) {
+        return;
+    }
 
+    ui.colorPicker.removeEventListener("calciteColorPickerChange", applyPickerColorToActiveStop);
+    ui.sliderElement.removeEventListener("arcgisActiveValueChange", syncPickerFromActiveStop);
+
+    ui.colorPicker.addEventListener("calciteColorPickerChange", applyPickerColorToActiveStop);
+    ui.sliderElement.addEventListener("arcgisActiveValueChange", syncPickerFromActiveStop);
 }
 export function syncPickerFromActiveStop(){
     const sliderFocus = ui.sliderElement.activeValue ? "Yes, active slider thumb" : "There is NOT AN active slider thumb"

@@ -1,16 +1,57 @@
+import { appState } from "../state/store";
+import * as hf from "../helperFunctions";
+
 export function createInitialRenderer(){
-    
+    if (!appState.layer || !appState.layer.renderer) {
+        return null;
+    }
+    return appState.layer.renderer.clone();
 }
-export function applyStopsToRenderer(){
-    
+export function applyStopsToRenderer(stops = appState.colorStops){
+    if (!Array.isArray(stops) || !stops.length || !appState.layer || !appState.layer.renderer) {
+        return false;
+    }
+
+    const renderer = appState.layer.renderer.clone();
+    const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");
+    if (colorVarIndex === -1) {
+        return false;
+    }
+
+    const colorVariable = renderer.visualVariables[colorVarIndex].clone();
+    colorVariable.stops = stops.map(stop => ({
+        color: stop.color,
+        value: stop.value
+    }));
+
+    renderer.visualVariables[colorVarIndex] = colorVariable;
+    appState.layer.renderer = renderer;
+    return true;
 }
 
 export function createDefaultStops(){
-    
+    if (!appState.stats) {
+        return [];
+    }
+
+    return [
+        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev },
+        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev / 2 },
+        { color: [242, 207, 158], value: appState.stats.avg },
+        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev / 2 },
+        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
+    ];
 }
 
-export function cloneStops(){
-    
+export function cloneStops(stops = appState.colorStops){
+    if (!Array.isArray(stops)) {
+        return [];
+    }
+
+    return stops.map(stop => ({
+        ...stop,
+        color: Array.isArray(stop.color) ? [...stop.color] : stop.color
+    }));
 }
 
 export function updateRenderer() {

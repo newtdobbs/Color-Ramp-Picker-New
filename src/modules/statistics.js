@@ -1,6 +1,7 @@
 import * as math from "mathjs";
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 import { queryFieldValues } from "./fields";
+import { appState } from "../state/store";
 
 export function calculateKurtosis(){
     var accumulator = incrkurtosis();
@@ -74,7 +75,21 @@ export function calculateFieldStats(values){
     }
 }
 
-function calculateStops(stats){
+export function buildDefaultStops(){
+    if (!appState.stats) {
+        return [];
+    }
+
+    return [
+        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev },
+        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev / 2 },
+        { color: [242, 207, 158], value: appState.stats.avg },
+        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev / 2 },
+        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
+    ];
+}
+
+export function calculateStops(stats){
 
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));

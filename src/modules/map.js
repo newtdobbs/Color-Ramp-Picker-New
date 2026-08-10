@@ -1,4 +1,9 @@
 // Role: map/view/layer creation.
+import { appState } from "../state/store";
+import * as ui from "./ui";
+import * as constants from "./constants";
+import * as hf from "../helperFunctions";
+
 const Map = await $arcgis.import("@arcgis/core/Map.js");
 const MapView = await $arcgis.import("@arcgis/core/views/MapView.js");
 const FeatureLayer = await $arcgis.import("@arcgis/core/layers/FeatureLayer.js");
@@ -14,7 +19,7 @@ export async function createBasemapOnlyView() {
     appState.map = map;
 
     const view = new MapView({
-        container: mapContainer, // the dom element to hold our map
+           container: ui.mapContainer, // the dom element to hold our map
         map: map,
         ui: { components: [] }
     });
@@ -22,11 +27,11 @@ export async function createBasemapOnlyView() {
 
     console.log('view:', view)
     appState.view.when(() => {
-        appState.view.goTo({ scale: default_scale, center: default_center }); // zooming to the lower 48 centered 
+           appState.view.goTo({ scale: constants.default_scale, center: constants.default_center }); // zooming to the lower 48 centered 
     })
 
-        if (basemapGallery) {
-        basemapGallery.view = view; // bind the MapView directly
+        if (ui.basemapGallery) {
+            ui.basemapGallery.view = view; // bind the MapView directly
     }
 
     return view;
