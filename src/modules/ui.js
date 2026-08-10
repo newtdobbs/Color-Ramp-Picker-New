@@ -9,6 +9,7 @@ export const inputBox = document.getElementById("input"); // the dialog box for 
 export const layerSelector = document.getElementById("layer-selector") // the dropdown for users to select a sublayer of the AGOL service
 export const fieldsLabel = document.getElementById("fields-label");
 export const generateButton = document.getElementById("generate-btn"); // the button that says 'Generate Histogram'
+export const bottomShell = document.getElementById("bottom-shell"); // the bottom dialog, which is hidden by default
 export const bottomPanel = document.getElementById("bottom-panel"); // the bottom dialog, which is hidden by default
 export const rampBlock = document.getElementById("ramp-block");
 export const description = document.getElementById("description")

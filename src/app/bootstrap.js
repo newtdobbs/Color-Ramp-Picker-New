@@ -43,22 +43,23 @@ async function handleGenerateButton() {
 		return;
 	}
 
-	ui.bottomPanel.hidden = false;
-	ui.bottomPanel.loading = true;
+	ui.bottomShell.hidden = false;
+	ui.bottomShell.loading = true;
 
-	const testPanel = document.getElementById("test-panel");
 	try {
-		testPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
-		testPanel.description = `Selected Layer: ${appState.layer.title}`;
+		ui.bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
+		ui.bottomPanel.description = `Selected Layer: ${appState.layer.title}`;
 
+        console.log("Initializing dialog for field")
 		await initializeDialogForField();
 		ui.description.textContent = appState.description;
+        console.log("DONE initializing dialog")
 	} catch (error) {
 		console.log("Error generating histogram:", error);
-		testPanel.heading = "Error Generating Color Ramp Information";
+		ui.bottomPanel.heading = "Error Generating Color Ramp Information";
 	} finally {
-		ui.bottomPanel.loading = false;
-		ui.bottomPanel.hidden = false;
+		ui.bottomShell.loading = false;
+		ui.bottomShell.hidden = false;
 	}
 
 	document.querySelector("[data-action-id=ramp]").disabled = false;

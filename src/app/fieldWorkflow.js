@@ -9,7 +9,30 @@ import * as constants from "../modules/constants";
 import { getServiceLayers, createDropdownForService } from "../modules/layers";
 import { createMapForSelectedLayer } from "../modules/map";
 import { renderFieldList } from "../modules/renderFieldList";
+import { attachSliderListeners, detachSliderListeners } from "../modules/slider";
+import { renderSwatchGradient } from "../modules/renderSwatch";
+import { renderAddStopButtons } from "../modules/renderButtons";
 import { appState } from "../state/store";
+
+function applyStateStopsToLayerRenderer() {
+    if (!appState.layer || !appState.layer.renderer || !Array.isArray(appState.colorStops)) {
+        return;
+    }
+
+    const renderer = appState.layer.renderer.clone();
+    const colorVarIndex = renderer.visualVariables.findIndex(vv => vv.type === "color");
+    if (colorVarIndex === -1) {
+        return;
+    }
+
+    const colorVariable = renderer.visualVariables[colorVarIndex].clone();
+    colorVariable.stops = appState.colorStops.map(stop => ({
+        color: stop.color,
+        value: stop.value
+    }));
+    renderer.visualVariables[colorVarIndex] = colorVariable;
+    appState.layer.renderer = renderer;
+}
 
 function normalizeItemIdInput(rawValue) {
     const itemIds = (rawValue || "")
@@ -20,28 +43,33 @@ function normalizeItemIdInput(rawValue) {
 }
 
 function calculateFieldStats(values) {
-    const cleanValues = values.filter(value => typeof value === "number" && !Number.isNaN(value)).sort((a, b) => a - b);
 
+    console.log("Cleaning values")
+    const cleanValues = values.filter(value => typeof value === "number" && !Number.isNaN(value)).sort((a, b) => a - b);
+    
     if (!cleanValues.length) {
         return null;
     }
-
+    
+    console.log("calculating basic stats")
     const count = cleanValues.length;
     const sum = cleanValues.reduce((total, value) => total + value, 0);
     const avg = sum / count;
     const median = count % 2 === 0
-        ? (cleanValues[count / 2 - 1] + cleanValues[count / 2]) / 2
-        : cleanValues[Math.floor(count / 2)];
+    ? (cleanValues[count / 2 - 1] + cleanValues[count / 2]) / 2
+    : cleanValues[Math.floor(count / 2)];
     const variance = cleanValues.reduce((total, value) => total + Math.pow(value - avg, 2), 0) / Math.max(count - 1, 1);
     const stddev = Math.sqrt(variance);
-
+    
+    console.log("calculating skewness")
     let skewness = 0;
     if (count > 2 && stddev > 0) {
         const thirdMoment = cleanValues.reduce((total, value) => total + Math.pow(value - avg, 3), 0) / count;
         const populationSkew = thirdMoment / Math.pow(stddev, 3);
         skewness = populationSkew * Math.sqrt(count * (count - 1)) / (count - 2);
     }
-
+    
+    console.log("calculating kurtosis")
     const kurtosisAccumulator = incrkurtosis();
     cleanValues.forEach(value => kurtosisAccumulator(value));
 
@@ -58,12 +86,14 @@ function calculateFieldStats(values) {
 }
 
 function buildDescription() {
+
     const descParts = [];
 
+    
     descParts.push(
         `${appState.field.alias} has a value range of ${hf.DecimalPrecision2.round(appState.stats.min, 2).toLocaleString()} to ${hf.DecimalPrecision2.round(appState.stats.max, 2).toLocaleString()}, with a mean of ${hf.DecimalPrecision2.round(appState.stats.avg, 2).toLocaleString()} and a median of ${hf.DecimalPrecision2.round(appState.stats.median, 2).toLocaleString()}. With a skewness of ${hf.DecimalPrecision2.round(appState.stats.skewness, 2).toLocaleString()}, the distribution shows`
     );
-
+    
     const skewAbs = Math.abs(appState.stats.skewness);
     if (skewAbs > 0.25) {
         let skewSeverity;
@@ -74,13 +104,13 @@ function buildDescription() {
         } else {
             skewSeverity = "slight";
         }
-
+        
         const skewDirection = appState.stats.skewness > 0 ? "positive (right)" : "negative (left)";
         descParts.push(`${skewSeverity} ${skewDirection} skew.`);
     } else {
         descParts.push(" no noticeable skew.");
     }
-
+    
     descParts.push(`The data has a kurtosis of ${hf.DecimalPrecision2.round(appState.stats.kurtosis, 2).toLocaleString()}, indicating`);
     const kurtosisAbs = Math.abs(appState.stats.kurtosis);
     if (kurtosisAbs <= 1) {
@@ -90,12 +120,13 @@ function buildDescription() {
         const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykurtic (flat)";
         descParts.push(`a ${severity}${kurtosisDirection} distribution.`);
     }
-
+    
     appState.description = descParts.join(" ");
 }
 
 export async function initializeDialogForField() {
     try {
+        console.log("Querying all features")
         const response = await queryAllFeatures({
             url: appState.layer.parsedUrl.path,
             outFields: [appState.field.name],
@@ -103,7 +134,9 @@ export async function initializeDialogForField() {
         });
 
         const values = response.features.map(feature => feature.attributes[appState.field.name]);
+        console.log("Calculating stats")
         const stats = calculateFieldStats(values);
+
 
         if (!stats) {
             hf.warnUser(`No numeric values were returned for ${appState.field.alias}.`);
@@ -112,21 +145,18 @@ export async function initializeDialogForField() {
 
         appState.stats = stats;
         console.log("Stats has been calculated as:", stats)
-
+        
         if (appState.stats.count < 20) {
             hf.warnUser(`With only ${appState.stats.count} observations, for now we'll refrain from calculating statistics`);
             return;
         }
-
-        const matchingScheme = getSchemeByName({
-            basemap: appState.map.basemap,
-            geometryType: appState.layer.geometryType,
-            theme: "above-and-below",
-            name: "Purple and Green 10"
-        });
-
-        console.log("Matching scheme", matchingScheme)
         
+        const matchingScheme = getSchemeByName({name: "Purple and Green 10"})
+        
+        console.log("Creating continuous renderer with params:")
+        console.log("appState view:",appState.view)
+        console.log("appState layer:",appState.layer)
+        console.log("appState field name:",appState.field.name)
         const rendererResult = await colorRendererCreator.createContinuousRenderer({
             view: appState.view,
             layer: appState.layer,
@@ -161,20 +191,23 @@ export async function initializeDialogForField() {
             { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev / 2 },
             { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
         ];
+        console.log("Default stops", defaultStops)
         
         appState.defaultStops = defaultStops.map(stop => ({ ...stop }));
-        console.log("Slider values", defaultStops)
-
+        
         appState.colorStops = defaultStops.map(stop => ({ ...stop }));
         appState.lastCustomStops = defaultStops.map(stop => ({ ...stop }));
 
+        // Keep map renderer in lockstep with the same stops/colors used by the histogram.
+        applyStateStopsToLayerRenderer();
+        
         ui.sliderElement.min = appState.stats.min;
         ui.sliderElement.max = appState.stats.max;
         ui.sliderElement.values = [...sliderValues];
         ui.sliderElement.valueLabelsPlacement = "after";
         ui.sliderElement.valueLabelsEditingEnabled = true;
         ui.sliderElement.segmentsDraggingDisabled = true;
-
+        
         const histogramResult = await histogram({
             layer: appState.layer,
             field: appState.field.name,
@@ -182,6 +215,7 @@ export async function initializeDialogForField() {
             maxValue: appState.stats.max,
             numBins: Math.min(100, appState.stats.count)
         });
+        console.log("Histogram result", histogramResult)
 
         ui.histogramElement.min = histogramResult.minValue;
         ui.histogramElement.max = histogramResult.maxValue;
@@ -191,6 +225,12 @@ export async function initializeDialogForField() {
             value: sliderValues[index]
         }));
         ui.histogramElement.colorBlendingEnabled = true;
+
+        // Initialize swatch + add-stop buttons and ensure slider changes drive renderer updates.
+        renderSwatchGradient();
+        renderAddStopButtons();
+        detachSliderListeners();
+        attachSliderListeners();
 
         buildDescription();
         ui.description.textContent = appState.description;

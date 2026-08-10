@@ -3,6 +3,7 @@ import * as hf from "../helperFunctions";
 import { appState } from "../state/store";
 import { initializeDialogForField } from "./fieldWorkflow";
 import { buildAndStoreDescription, renderDescription } from "./descriptionWorkflow";
+import { updateButtons } from "../modules/renderButtons";
 
 function syncStopsFromSliderValues() {
     const sliderValues = [...ui.sliderElement.values];
@@ -198,4 +199,5 @@ export function updateRampUI() {
     updateHistogramFromState();
     updateRendererFromState();
     updateSwatchFromState();
+    updateButtons();
 }
