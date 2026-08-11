@@ -1,11 +1,50 @@
 import * as ui from "./ui";
 import { appState } from "../state/store";
+import * as actions from "../state/actions"
 import * as hf from "../helperFunctions";
 import { hideAddStopButtons, showAddStopButtons } from "./renderButtons";
 import { updateRampUI } from "../app/rampWorkflow";
+import * as picker from "../modules/colorPicker"
+
+let pendingActiveValueResetId = null;
+
+function clearPendingActiveValueReset() {
+    if (pendingActiveValueResetId !== null) {
+        clearTimeout(pendingActiveValueResetId);
+        pendingActiveValueResetId = null;
+    }
+}
+
+function commitActiveSliderValue(value) {
+    actions.setActiveSliderValue(value);
+    picker.syncPickerFromActiveStop();
+    appState.sliderActive = typeof value === "number";
+}
 
 function handleActiveSliderThumb() {
-    appState.activeSliderValue = ui.sliderElement.activeValue;
+    const activeValue = ui.sliderElement.activeValue;
+
+    if (typeof activeValue === "number") {
+        clearPendingActiveValueReset();
+        commitActiveSliderValue(activeValue);
+        console.log("UI slider active value is:", activeValue);
+        return;
+    }
+
+    // ArcGIS slider briefly reports undefined while handing off between thumbs.
+    // Only treat undefined as a real deselection if it persists briefly.
+    clearPendingActiveValueReset();
+    pendingActiveValueResetId = setTimeout(() => {
+        pendingActiveValueResetId = null;
+        if (typeof ui.sliderElement.activeValue === "number") {
+            commitActiveSliderValue(ui.sliderElement.activeValue);
+            console.log("Recovered active slider value after transient undefined:", ui.sliderElement.activeValue);
+            return;
+        }
+
+        commitActiveSliderValue(null);
+        console.log("Slider thumb deselected; active value cleared.");
+    }, 50);
 }
 
 // Role: slider behavior and stop-index integrity.
@@ -27,17 +66,17 @@ export function detachSliderListeners(){
 }
 
 export function syncStopsFromSlider(){
-    appState.sliderValues = [...ui.sliderElement.values];
+    actions.setSliderValues([...ui.sliderElement.values]);
     if (!Array.isArray(appState.colorStops)) {
-        appState.colorStops = appState.sliderValues.map(value => ({ color: [0, 0, 0], value }));
+        actions.setSliderValues(appState.sliderValues.map(value => ({ color: [0, 0, 0], value })));
         return;
     }
 
-    appState.colorStops = appState.sliderValues.map((value, index) => {
+    actions.setSliderValues(appState.sliderValues.map((value, index) => {
         const existing = appState.colorStops[Math.min(index, appState.colorStops.length - 1)];
         const color = existing && Array.isArray(existing.color) ? [...existing.color] : [0, 0, 0];
         return { color, value };
-    });
+    }));
 }
 
 export function addStopAtValue(newValue){
@@ -69,33 +108,36 @@ export function addStopAtValue(newValue){
     values.splice(insertIndex, 0, newValue);
     stops.splice(insertIndex, 0, { color, value: newValue });
 
-    appState.sliderValues = values;
-    appState.colorStops = stops;
+    actions.setSliderValues([...values])
+    actions.setColorStops(stops);
     ui.sliderElement.values = [...values];
     updateRampUI();
     return true;
 }
 
-export function removeSliderStop(){
+export function sliderStopRemove(event){
     
     //  removing a slider
-    ui.sliderElement.addEventListener('contextmenu', (event) => {
+    // ui.sliderElement.addEventListener('contextmenu', (event) => {
         // 1. Prevent the default browser context menu from appearing
         event.preventDefault(); 
+
+        console.log("Context menu right click")
     
         if (typeof ui.sliderElement.activeValue === "number") {
             if (ui.sliderElement.values.length == 2){
                 hf.warnUser('Must have at least 2 sliders before removing one')
             } else {
+                // console.log("We need to remove the slider associated with:", ui.sliderElement.activeValue);
                 // determining WHICH slider handle to remove
                 let removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
     
-                // // Building new arrays.
+                // Building new arrays.
                 const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
-                nextSliderValues.splice(removeIndex, 1); // and removing the right-clicked slider
+                nextSliderValues.splice(removeIndex, 1); // removing the right-clicked slider
     
                 const nextColorStops = [...appState.colorStops];
-                nextColorStops.splice(removeIndex, 1); // and removing the right-clicked slider
+                nextColorStops.splice(removeIndex, 1); // and removing stop associated with the right-clicked slider
     
                 appState.sliderValues = nextSliderValues;
                 appState.colorStops = nextColorStops;
@@ -105,12 +147,17 @@ export function removeSliderStop(){
                 ui.histogramElement.colorStops = [...nextColorStops];
     
                 // updating UI
-                updateUI();
-    
+                updateRampUI();
+
+                // clearing the color picker
+                ui.colorPicker.value = {
+                    'r': 255,
+                    'g': 255,
+                    'b': 255,
+                    'a': 1 
+                }
             }
-    
         }
-    });
 }
 
 export function removeActiveStop(){
@@ -146,7 +193,7 @@ export function sliderHandler() {
     syncStopsFromSlider();
     // appState.sliderValues = [...ui.sliderElement.values]; // updating the global state so we can just pull from there 
 
-    // finally calling updateUI, which should only be using state variables
+    // finally calling updateRampUI, which should only be using state variables
     updateRampUI(); 
 
     // updating the last custom stops to use the current slider values

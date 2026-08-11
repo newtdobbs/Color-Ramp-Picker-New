@@ -56,6 +56,10 @@ export function resetFieldState(){
     appState.fieldsList = null;
 }
 
+export function setActiveSliderValue(activeValue){
+    appState.activeSliderValue = activeValue;
+}
+
 export function resetRampState(){
     appState.sliderValues = null;
     appState.colorStops = null;

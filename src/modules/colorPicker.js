@@ -2,6 +2,7 @@ import * as ui from "./ui";
 import { appState } from "../state/store";
 import * as hf from "../helperFunctions";
 import { sliderHandler } from "./slider";
+import * as actions from "../state/actions"
 
 // Role: color picker behavior.
 export function attachColorPickerListener(){
@@ -19,24 +20,21 @@ export function syncPickerFromActiveStop(){
     const sliderFocus = ui.sliderElement.activeValue ? "Yes, active slider thumb" : "There is NOT AN active slider thumb"
     console.log(sliderFocus, appState.activeSliderValue)
     if (typeof ui.sliderElement.activeValue === "number") {
-        if (appState.activeSliderValue != ui.sliderElement.activeValue) {   // this only occurs on thumb CHANGE
-            appState.activeSliderValue = ui.sliderElement.activeValue;
-            const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
-            console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
-            // populating the color picker with the slider's value
-            ui.colorPicker.value = {
-                'r': appState.colorStops[correspondingSliderThumb].color[0],
-                'g': appState.colorStops[correspondingSliderThumb].color[1],
-                'b': appState.colorStops[correspondingSliderThumb].color[2],
-                'a': appState.colorStops[correspondingSliderThumb].color[3] // this ensures the color's transparency is used by the picker
-             }
+        const correspondingSliderThumb = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+        console.log('slider element active value', ui.sliderElement.activeValue, 'corresponding to color stop', correspondingSliderThumb)
+        // populating the color picker with the slider's value
+        ui.colorPicker.value = {
+            'r': appState.colorStops[correspondingSliderThumb].color[0],
+            'g': appState.colorStops[correspondingSliderThumb].color[1],
+            'b': appState.colorStops[correspondingSliderThumb].color[2],
+            'a': appState.colorStops[correspondingSliderThumb].color[3] // this ensures the color's transparency is used by the picker
         }
     }
-
 }
+
 export function applyPickerColorToActiveStop(){
 
-    if(!appState.activeSliderValue){ // if there's no active slider thumb we'll warn the user & make no change
+    if(typeof appState.activeSliderValue !== "number"){ // if there's no active slider thumb we'll warn the user & make no change
         hf.warnUser('no active slider value')
     } else {
         // hf.warnUser('active slider value is', appState.activeSliderValue);

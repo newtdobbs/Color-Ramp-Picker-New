@@ -94,7 +94,6 @@ export function createButton(buttonValue){
         ui.histogramElement.colorStops = [...nextColorStops];
         
         // updating UI
-        // updateUI();
         sliderHandler();
         
         // assigning the active slider value to the button value

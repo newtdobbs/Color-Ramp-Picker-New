@@ -16,12 +16,12 @@
       </calcite-navigation>
 
       <calcite-shell-panel id="shell-panel-nav" slot="panel-start" height="l">
-        <calcite-panel heading="Color Ramp Adjuster" icon="color-coded-map" display="float" id="app-heading">
+        <calcite-panel heading="Color Ramp Adjuster" icon="color-coded-map" display="float" id="inner-panel">
 
           <calcite-action-bar slot="action-bar" layout="horizontal" expand-disabled id="action-bar">
             <calcite-action data-action-id="field" icon="list-radio" text="Field" active text-enabled></calcite-action>
             <calcite-action data-action-id="basemaps" icon="basemap" text="Basemap" text-enabled></calcite-action>
-            <calcite-action data-action-id="ramp" icon="color-correction" text="Color Ramp" disabled text-enabled></calcite-action>
+            <calcite-action data-action-id="color" icon="color-correction" text="Color" disabled text-enabled></calcite-action>
           </calcite-action-bar>
 
           <calcite-block heading="Layer:" data-block-id="field" expanded id="field-block">
@@ -38,7 +38,7 @@
           </calcite-block>
           
 
-          <calcite-block heading="Color Ramp Information" scale="l" data-block-id="ramp" id="ramp-block" hidden>
+          <calcite-block heading="Color Information" scale="l" data-block-id="color" id="ramp-block" hidden>
             <div style="display:flex; flex-direction:column;gap:10px;align-items:center;justify-content:center;">
               <div id="description"></div>
               <!-- <calcite-label>Active Color Stop</calcite-label>  -->

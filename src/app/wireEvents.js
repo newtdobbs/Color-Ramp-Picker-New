@@ -1,7 +1,9 @@
 import * as ui from "../modules/ui.js"
 import { appState } from "../state/store";
+import * as actions from "../state/actions";
 import { getServiceLayers, createDropdownForService } from "../modules/layers";
 import { initializeDialogForField } from "./fieldWorkflow";
+import { sliderStopRemove } from "../modules/slider.js";
 
 
 // Role: register all listeners in one place.
@@ -21,6 +23,13 @@ export async function wireEvents(){
 
     ui.inputBox.addEventListener("keydown", await wireInputBox);
 
+    ui.sliderElement.addEventListener('contextmenu', wireSliderRightClick);
+
+}
+
+function resetInnerPanelScrollToTop() {
+    ui.innerPanel.scrollContentTo({ left: 0, top: 0, behavior: "auto" });
+
 }
 
 function wireActionBarClick(event){
@@ -34,18 +43,18 @@ function wireActionBarClick(event){
         return;
     }
 
-    // If clicking the already-open tab, collapse it.
-    if (appState.activeWidget === nextWidget) {
-        action.active = false;
-        const activeBlock = document.querySelector(`[data-block-id=${nextWidget}]`);
-        if (activeBlock) {
-            activeBlock.hidden = true;
-        }
-        appState.activeWidget = null;
-        return;
-    }
+    // Can uncomment chunk below to hide the active block if its open
+    // if (appState.activeWidget === nextWidget) {
+    //     action.active = false;
+    //     const activeBlock = document.querySelector(`[data-block-id=${nextWidget}]`);
+    //     if (activeBlock) {
+    //         activeBlock.hidden = true;
+    //     }
+    //     appState.activeWidget = null;
+    //     return;
+    // }
 
-    // Enforce a single open tab by resetting every action/block first.
+    // Resettting every action & block to make sure only one block stays open
     document.querySelectorAll("calcite-action-bar calcite-action[data-action-id]").forEach((actionEl) => {
         actionEl.active = false;
     });
@@ -59,8 +68,9 @@ function wireActionBarClick(event){
         nextBlock.hidden = false;
         nextBlock.expanded = true;
     }
-
     appState.activeWidget = nextWidget;
+    resetInnerPanelScrollToTop();
+    console.log("Active widget in state is", appState.activeWidget)
 }
 
 function wireJSONCopyButton(){
@@ -76,7 +86,32 @@ function wireJSONCopyButton(){
     }
 }
 
+
 function wireColorPickerChange(){
+
+}
+
+function switchActionBarTab(actionName){
+
+    // First hiding all blocks and making them inactive
+    document.querySelectorAll("calcite-action-bar calcite-action[data-action-id]").forEach((actionEl) => {
+        actionEl.active = false;
+    });
+    document.querySelectorAll("[data-block-id]").forEach((blockEl) => {
+        blockEl.hidden = true;
+    });
+
+    const currentTab = document.querySelector(`[data-action-id=${actionName}]`);
+    currentTab.active = true;
+
+    const currentBlock = document.querySelector(`[data-block-id=${actionName}]`);
+    if (currentBlock) {
+        currentBlock.hidden = false;
+        currentBlock.expanded = true;
+    }
+
+    actions.setActiveWidget(actionName);
+    resetInnerPanelScrollToTop();
 
 }
 
@@ -115,7 +150,7 @@ function wireResetButton(){
 
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
 
-    updateUI(); // finally we updateUI to reflect these changes in the map/histogram
+    updateRampUI(); // finally we updateRampUI to reflect these changes in the map/histogram
 
 }
 
@@ -162,17 +197,15 @@ async function wireGenerateButton() {
 		hf.warnUser("Select a field from the fields list");
 		return;
 	}
-
 	ui.bottomShell.hidden = false;
 	ui.bottomShell.loading = true;
-
 	try {
 		ui.bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
 		ui.bottomPanel.description = `Selected Layer: ${appState.layer.title}`;
 
         console.log("Initializing dialog for field")
 		await initializeDialogForField();
-        console.log("DONE initializing dialog")
+        console.log("DONE initializing dialog") 
 	} catch (error) {
 		console.log("Error generating histogram:", error);
 		ui.bottomPanel.heading = "Error Generating Color Ramp Information";
@@ -180,8 +213,13 @@ async function wireGenerateButton() {
 		ui.bottomShell.loading = false;
 		ui.bottomShell.hidden = false;
 	}
+	document.querySelector("[data-action-id=color]").disabled = false;
 
-	document.querySelector("[data-action-id=ramp]").disabled = false;
+    switchActionBarTab("color");    
+}
+
+function wireSliderRightClick(event){
+    sliderStopRemove(event);
 }
 
 export function unwireEvents(){

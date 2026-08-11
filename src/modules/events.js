@@ -189,8 +189,8 @@ export function sliderHandler() {
     appState.colorStops = newStops; // assigning the new slider stops to the state variable 
     // appState.sliderValues = [...sliderElement.values]; // updating the global state so we can just pull from there 
     
-    // finally calling updateUI, which should only be using state variables
-    updateUI(); 
+    // finally calling updateRampUI, which should only be using state variables
+    updateRampUI(); 
     
     // updating the last custom stops to use the current slider values
     appState.lastCustomValues = [...appState.sliderValues];
