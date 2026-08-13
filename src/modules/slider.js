@@ -68,11 +68,11 @@ export function detachSliderListeners(){
 export function syncStopsFromSlider(){
     actions.setSliderValues([...ui.sliderElement.values]);
     if (!Array.isArray(appState.colorStops)) {
-        actions.setSliderValues(appState.sliderValues.map(value => ({ color: [0, 0, 0], value })));
+        actions.setColorStops(appState.sliderValues.map(value => ({ color: [0, 0, 0], value })));
         return;
     }
 
-    actions.setSliderValues(appState.sliderValues.map((value, index) => {
+    actions.setColorStops(appState.sliderValues.map((value, index) => {
         const existing = appState.colorStops[Math.min(index, appState.colorStops.length - 1)];
         const color = existing && Array.isArray(existing.color) ? [...existing.color] : [0, 0, 0];
         return { color, value };
@@ -117,47 +117,46 @@ export function addStopAtValue(newValue){
 
 export function sliderStopRemove(event){
     
-    //  removing a slider
-    // ui.sliderElement.addEventListener('contextmenu', (event) => {
-        // 1. Prevent the default browser context menu from appearing
-        event.preventDefault(); 
+    // preventing default right-click menu from appearing
+    event.preventDefault(); 
 
-        console.log("Context menu right click")
-    
-        if (typeof ui.sliderElement.activeValue === "number") {
-            if (ui.sliderElement.values.length == 2){
-                hf.warnUser('Must have at least 2 sliders before removing one')
-            } else {
-                // console.log("We need to remove the slider associated with:", ui.sliderElement.activeValue);
-                // determining WHICH slider handle to remove
-                let removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
-    
-                // Building new arrays.
-                const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
-                nextSliderValues.splice(removeIndex, 1); // removing the right-clicked slider
-    
-                const nextColorStops = [...appState.colorStops];
-                nextColorStops.splice(removeIndex, 1); // and removing stop associated with the right-clicked slider
-    
-                appState.sliderValues = nextSliderValues;
-                appState.colorStops = nextColorStops;
-    
-                // then updating DOM elements form the state 
-                ui.sliderElement.values = [...nextSliderValues];
-                ui.histogramElement.colorStops = [...nextColorStops];
-    
-                // updating UI
-                updateRampUI();
+    console.log("Context menu right click")
 
-                // clearing the color picker
-                ui.colorPicker.value = {
-                    'r': 255,
-                    'g': 255,
-                    'b': 255,
-                    'a': 1 
-                }
+    if (typeof ui.sliderElement.activeValue === "number") {
+        // preventing user from removing a stop if theres only 2 sliders
+        if (ui.sliderElement.values.length <= 2){
+            hf.warnUser('Must have at least 2 sliders before removing one')
+            return
+        } else {
+            // determining WHICH slider handle to remove
+            let removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+
+            // building new arrays
+            const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
+            nextSliderValues.splice(removeIndex, 1); // removing the right-clicked slider
+
+            const nextColorStops = [...appState.colorStops];
+            nextColorStops.splice(removeIndex, 1); // and removing stop associated with the right-clicked slider
+
+            actions.setSliderValues(nextSliderValues);
+            actions.setColorStops(nextColorStops);
+
+            // then updating DOM elements form the state 
+            ui.sliderElement.values = [...nextSliderValues];
+            ui.histogramElement.colorStops = [...nextColorStops];
+
+            // updating UI
+            updateRampUI();
+
+            // clearing the color picker
+            ui.colorPicker.value = {
+                'r': 255,
+                'g': 255,
+                'b': 255,
+                'a': 1 
             }
         }
+    }
 }
 
 export function removeActiveStop(){
@@ -197,6 +196,6 @@ export function sliderHandler() {
     updateRampUI(); 
 
     // updating the last custom stops to use the current slider values
-    appState.lastCustomValues = [...appState.sliderValues];
-    appState.lastCustomStops = [...appState.colorStops];
+    actions.setLastCustomValues([...appState.sliderValues]);
+    actions.setLastCustomStops([...appState.colorStops]);
 }

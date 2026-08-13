@@ -45,6 +45,10 @@ export function setLastCustomStops(lastCustomStops){
     appState.lastCustomStops = lastCustomStops;
 }
 
+export function setLastCustomValues(lastCustomValues){
+    appState.lastCustomValues = lastCustomValues;
+}
+
 export function setSymbologyMode(symbologyMode){
     appState.symbologyMode = symbologyMode;
 }
@@ -58,6 +62,10 @@ export function resetFieldState(){
 
 export function setActiveSliderValue(activeValue){
     appState.activeSliderValue = activeValue;
+}
+
+export function setButtons(buttons){
+    appState.buttons = buttons;
 }
 
 export function resetRampState(){

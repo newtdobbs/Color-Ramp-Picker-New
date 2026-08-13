@@ -45,8 +45,12 @@
               <calcite-fab id="previous-color-button" disabled label="Undo Change" text-enabled text="Undo Change" icon="undo"></calcite-fab>
               <calcite-color-picker alpha-channel id="color-picker" format="rgba"></calcite-color-picker>
               <calcite-label></calcite-label> 
-              <calcite-button label="Default" round id="reset-button" width="full" disabled>Default</calcite-button>
-              <calcite-button label="Copy JSON" round id="copy-json" width="full" disabled>Copy JSON</calcite-button>
+              <calcite-split-button width="full" round primary-text="Apply to Slider Stop" id="apply-button">
+                  <calcite-dropdown-group id="slider-stop-dropdown" selection-mode="single" group-title="Slider Stop">
+                  </calcite-dropdown-group>
+              </calcite-split-button>
+              <calcite-button label="Default" id="reset-button" width="full" disabled>Default</calcite-button>
+              <calcite-button label="Copy JSON" id="copy-json" width="full" disabled>Copy JSON</calcite-button>
             </div>
           </calcite-block> 
         

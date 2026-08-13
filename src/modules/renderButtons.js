@@ -1,6 +1,7 @@
 import * as ui from "./ui";
 import { appState } from "../state/store";
 import { sliderHandler } from "./slider";
+import { setButtons } from "../state/actions";
 
 export function renderAddStopButtons(){
     if (!Array.isArray(appState.sliderValues) || appState.sliderValues.length < 2) {
@@ -72,7 +73,13 @@ export function createButton(buttonValue){
         // interpolating between the color stops above and below the value
         let lowerStop = appState.colorStops[insertIndex - 1];
         let upperStop = appState.colorStops[insertIndex];
-        let fraction = (buttonValue - lowerStop.value) / (upperStop.value - lowerStop.value);
+        if (!lowerStop || !upperStop) {
+            return;
+        }
+
+        const span = (upperStop.value - lowerStop.value) || 1;
+        let fraction = (buttonValue - lowerStop.value) / span;
+        fraction = Math.max(0, Math.min(1, fraction));
         let newColor = [
             Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
             Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
@@ -107,16 +114,29 @@ export function createButton(buttonValue){
 
 export function updateButtons(){
 
-    ui.swatch.innerHTML = "";
-    appState.buttons = [];
+    if (!ui.swatch) {
+        return;
+    }
 
-    for(let i = 1; i < appState.sliderValues.length; i++){
+    ui.swatch.innerHTML = "";
+    setButtons([]); // clearing the buttons
+
+    const sliderValues = (appState.sliderValues || []).filter((value) => Number.isFinite(value));
+    if (sliderValues.length < 2 || !appState.stats) {
+        return;
+    }
+
+    const range = appState.stats.max - appState.stats.min;
+    const safeRange = Number.isFinite(range) && range !== 0 ? range : 1;
+
+    for(let i = 1; i < sliderValues.length; i++){
+
 
         // shifting the buttons 
-        const midpoint = ((appState.sliderValues[i] - appState.sliderValues[i-1]) / 2) + appState.sliderValues[i-1]; // midpoint value of the current division of the color ramp 
-        const midpointPercent = ((midpoint - appState.stats.min) / (appState.stats.max - appState.stats.min)) * 100; // percentge of the color ramp's width
+        const midpoint = ((sliderValues[i] - sliderValues[i-1]) / 2) + sliderValues[i-1]; // midpoint value of the current division of the color ramp 
+        const midpointPercent = ((midpoint - appState.stats.min) / safeRange) * 100; // percentge of the color ramp's width
         // console.log(`shifting button ${i} to midpoint ${midpointPercent}%`); // log for debug
-        const button = createButton(midpoint);
+        createButton(midpoint);
         appState.buttons[i - 1].style.left = `${midpointPercent}%`;
     }
 }

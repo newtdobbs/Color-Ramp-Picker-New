@@ -33,24 +33,27 @@ export function syncPickerFromActiveStop(){
 }
 
 export function applyPickerColorToActiveStop(){
+    console.log("COLOR CHANGE, picker is now", ui.colorPicker.value, "app state active slider value", appState.activeSliderValue)
 
-    if(typeof appState.activeSliderValue !== "number"){ // if there's no active slider thumb we'll warn the user & make no change
-        hf.warnUser('no active slider value')
-    } else {
-        // hf.warnUser('active slider value is', appState.activeSliderValue);
-        console.log('COLOR CHANGE: slider element active value', appState.activeSliderValue, 'color stops', appState.colorStops)
-        const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderValue)
-        const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
-        console.log('Assiging', ui.colorPicker.value,' to stop ', correspondingColorStopIndex);
-        appState.colorStops[correspondingColorStopIndex].color = [
-            ui.colorPicker.value.r, // red
-            ui.colorPicker.value.g, // green 
-            ui.colorPicker.value.b, // blue
-            ui.colorPicker.value.a // alpha
-        ] 
-        console.log('Color stops after change', appState.colorStops)
+    // if(typeof appState.activeSliderValue !== "number"){ // if there's no active slider thumb we'll warn the user & make no change
+    //     hf.warnUser('no active slider value')
+    // } else {
+    //     // hf.warnUser('active slider value is', appState.activeSliderValue);
+    //     console.log('COLOR CHANGE: slider element active value', appState.activeSliderValue, 'color stops', appState.colorStops)
+    //     const correspondingColorStopIndex = appState.colorStops.findIndex(stop => stop.value === appState.activeSliderValue)
+    //     const correspondingColorStop = appState.colorStops[correspondingColorStopIndex]
+    //     console.log('Assiging', ui.colorPicker.value,' to stop ', correspondingColorStopIndex);
+    //     const newColor = [
+    //         ui.colorPicker.value.r, // red
+    //         ui.colorPicker.value.g, // green 
+    //         ui.colorPicker.value.b, // blue
+    //         ui.colorPicker.value.a // alpha
+    //     ] 
+    //     const newColorStops = appState.colorStops(correspondingColorStopIndex, 0, newColor) 
+    //     actions.setColorStops(newColorStops);
+    //     console.log('Color stops after change', appState.colorStops)
         
-        sliderHandler();
-        // appState.activeSliderValue = null;
-    }
+    //     sliderHandler();
+    //     // appState.activeSliderValue = null;
+    // }
 }

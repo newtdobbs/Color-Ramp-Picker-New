@@ -1,9 +1,12 @@
 import * as ui from "../modules/ui.js"
 import { appState } from "../state/store";
 import * as actions from "../state/actions";
+import * as hf from "../helperFunctions.js"
 import { getServiceLayers, createDropdownForService } from "../modules/layers";
 import { initializeDialogForField } from "./fieldWorkflow";
 import { sliderStopRemove } from "../modules/slider.js";
+import { applyPickerColorToActiveStop } from "../modules/colorPicker.js";
+import { updateRampUI } from "./rampWorkflow.js";
 
 
 // Role: register all listeners in one place.
@@ -13,11 +16,12 @@ export async function wireEvents(){
         
     ui.jsonCopy.addEventListener("click", wireJSONCopyButton);
 
-    ui.resetButton.addEventListener("click",  wireResetButton);
-
     ui.colorPicker.addEventListener("calciteColorPickerChange", wireColorPickerChange);
 
     ui.resetButton.addEventListener("click",  wireResetButton);
+
+    ui.applyColorButton.addEventListener("click", wireColorPickerApply);
+    ui.applyColorButton.addEventListener("calciteSplitButtonPrimaryClick", wireApplyColorToSelectedStop);
 
     ui.generateButton.addEventListener("click", await wireGenerateButton);
 
@@ -25,6 +29,126 @@ export async function wireEvents(){
 
     ui.sliderElement.addEventListener('contextmenu', wireSliderRightClick);
 
+}
+
+function wireColorPickerApply(){
+    if (!ui.sliderStopDropdown) {
+        return;
+    }
+
+    const sliderValues = Array.isArray(appState.sliderValues) ? appState.sliderValues : [];
+    const signature = sliderValues
+        .map((value) => Number.isFinite(value) ? value.toFixed(6) : "NaN")
+        .join("|");
+
+    // Avoid rebuilding on every click; rebuild only when slider stops actually change.
+    const needsRebuild =
+        ui.sliderStopDropdown.children.length !== sliderValues.length ||
+        ui.sliderStopDropdown.dataset.valuesSignature !== signature;
+
+    if (!needsRebuild) {
+        return;
+    }
+
+    const previouslySelectedIndex = getSelectedDropdownStopIndex();
+
+    // clearing any dropdown items that already exist so we can reuse this function in event of a slider value remove
+    ui.sliderStopDropdown.replaceChildren();
+
+    // loop through the app state slider values adding a dropdown item for each
+    for(let i = 0; i < sliderValues.length; i++){
+        const sliderStopDropdownItem = document.createElement("calcite-dropdown-item");
+        const sliderValue = hf.DecimalPrecision2.round(sliderValues[i], 2)
+        
+        sliderStopDropdownItem.label = `Slider Stop ${i + 1}: ${sliderValue} `;
+        sliderStopDropdownItem.textContent = `Slider Stop ${i + 1}: ${sliderValue} `;
+        sliderStopDropdownItem.value = String(i);
+        sliderStopDropdownItem.selected = i === (previouslySelectedIndex >= 0 ? previouslySelectedIndex : 0);
+        sliderStopDropdownItem.addEventListener("calciteDropdownItemSelect", ()=>{
+            ui.applyColorButton.primaryText = `Apply to Slider Stop ${i + 1}`;
+            actions.setActiveSliderValue(i);
+        });
+        ui.sliderStopDropdown.appendChild(sliderStopDropdownItem);
+    }
+    ui.sliderStopDropdown.selectionMode = "single";
+    if (ui.applyColorButton) {
+        ui.applyColorButton.selectionMode = "single";
+    }
+
+    const activeIndex = getSelectedDropdownStopIndex();
+    if (activeIndex >= 0) {
+        actions.setActiveSliderValue(activeIndex);
+        ui.applyColorButton.primaryText = `Apply to Slider Stop ${activeIndex + 1}`;
+    }
+    ui.sliderStopDropdown.dataset.valuesSignature = signature;
+}
+
+function getSelectedDropdownStopIndex() {
+    if (!ui.sliderStopDropdown) {
+        return -1;
+    }
+
+    const selectedItem = ui.sliderStopDropdown.querySelector("calcite-dropdown-item[selected]");
+    if (!selectedItem) {
+        return -1;
+    }
+
+    const parsedIndex = Number.parseInt(selectedItem.value, 10);
+    return Number.isInteger(parsedIndex) ? parsedIndex : -1;
+}
+
+function wireApplyColorToSelectedStop() {
+    wireColorPickerApply();
+
+    const stopIndex = getSelectedDropdownStopIndex();
+    if (stopIndex < 0) {
+        hf.warnUser("Select a slider stop from the dropdown before applying color.");
+        return;
+    }
+
+    if (!Array.isArray(appState.colorStops) || !appState.colorStops[stopIndex]) {
+        hf.warnUser("Could not find the selected slider stop.");
+        return;
+    }
+
+    const pickerValue = ui.colorPicker?.value;
+    if (!pickerValue) {
+        hf.warnUser("No color picker value is available.");
+        return;
+    }
+
+    const nextColor = [
+        pickerValue.r,
+        pickerValue.g,
+        pickerValue.b,
+        Number.isFinite(pickerValue.a) ? pickerValue.a : 1
+    ];
+
+    const nextColorStops = appState.colorStops.map((stop, index) => {
+        if (index === stopIndex) {
+            return {
+                ...stop,
+                color: [...nextColor]
+            };
+        }
+        return {
+            ...stop,
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0, 1]
+        };
+    });
+
+    actions.setColorStops(nextColorStops);
+    actions.setLastCustomValues([...(appState.sliderValues || [])]);
+    actions.setLastCustomStops(nextColorStops.map(stop => ({ ...stop, color: [...stop.color] })));
+
+    if (appState.symbologyMode === "Default") {
+        actions.setSymbologyMode("Custom");
+        ui.resetButton.textContent = "Default";
+        ui.resetButton.label = "Default";
+    }
+
+    actions.setActiveSliderValue(stopIndex);
+    updateRampUI();
 }
 
 function resetInnerPanelScrollToTop() {
@@ -88,7 +212,7 @@ function wireJSONCopyButton(){
 
 
 function wireColorPickerChange(){
-
+    applyPickerColorToActiveStop();
 }
 
 function switchActionBarTab(actionName){
@@ -220,6 +344,7 @@ async function wireGenerateButton() {
 
 function wireSliderRightClick(event){
     sliderStopRemove(event);
+    wireColorPickerApply();
 }
 
 export function unwireEvents(){
@@ -227,6 +352,8 @@ export function unwireEvents(){
     ui.jsonCopy.removeEventListener("click", wireJSONCopyButton);
     ui.resetButton.removeEventListener("click", wireResetButton);
     ui.colorPicker.removeEventListener("calciteColorPickerChange", wireColorPickerChange);
+    ui.applyColorButton.removeEventListener("click", wireColorPickerApply);
+    ui.applyColorButton.removeEventListener("calciteSplitButtonPrimaryClick", wireApplyColorToSelectedStop);
     ui.generateButton.removeEventListener("click", wireGenerateButton);
     ui.inputBox.removeEventListener("keydown", wireInputBox);
 }
