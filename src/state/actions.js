@@ -80,6 +80,10 @@ export function setButtons(buttons){
     appState.buttons = buttons;
 }
 
+export function setOutliersMode(outlierSide){
+    appState.outlier.outlierSide = appState.outlier.outlierSide === "Hide" ? "Hide" : "Show";
+}
+
 export function resetRampState(){
     appState.sliderValues = null;
     appState.colorStops = null;
@@ -91,6 +95,8 @@ export function resetRampState(){
     appState.activeSliderValue = null;
     appState.colorHistory = [];
     appState.symbologyMode = "Custom";
+    appState.outliers.low = "Hide";
+    appState.outliers.high = "Hide";
 
     if (ui.description) {
         ui.description.textContent = "";
@@ -124,9 +130,10 @@ export function resetAppState(){
     appState.defaultStops = null;
     appState.lastCustomStops = [];
     appState.lastCustomValues = [];
-    appState.offsetBase = null
-    appState.symbologyMode = "Custom"
-    appState.outliersVisibility = "Hide Outliers"
+    appState.offsetBase = null;
+    appState.symbologyMode = "Custom";
+    appState.outliers.low = "Hide";
+    appState.outliers.high = "Hide";
     appState.inflectionPoints = null 
     ui.resetButton.textContent = "Default";
     ui.resetButton.label = "Default";

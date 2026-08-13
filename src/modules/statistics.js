@@ -1,6 +1,9 @@
 import * as math from "mathjs";
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 import { appState } from "../state/store";
+import { lowOutliersChip, highOutliersChip } from "./ui";
+import { setOutliersMode } from "../state/actions";
+
 
 export function calculateKurtosis(vals) {
     if (!Array.isArray(vals) || vals.length < 4) {
@@ -46,14 +49,38 @@ export function calculateOutliers(vals) {
     const highCutoff = q3 + 1.5 * iqr;
 
     const lowOutliers = sorted.filter(v => v < lowCutoff);
+    if (lowOutliers) { 
+        console.log("Low outliers:", lowOutliers)
+        lowOutliersChip.disabled = false; 
+    }
     const highOutliers = sorted.filter(v => v > highCutoff);
+    if (highOutliers) { 
+        console.log("High outliers:", highOutliers)
+        highOutliersChip.disabled = false;
+    }
 
-    return [lowCutoff, highCutoff, lowOutliers, highOutliers]
-    // appState.stats.lowCutoff = lowCutoff;
-    // appState.stats.highCutoff = highCutoff;
+    return [lowCutoff, highCutoff]
 
 
     console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
+}
+
+export function wireOutlierChipClick(){
+    const logSelection = (chip, label) => {
+        queueMicrotask(() => {
+            console.log(`${label} chip selection:`, chip.selected);
+        });
+    };
+
+    lowOutliersChip.addEventListener("calciteChipSelect", () => {
+        logSelection(lowOutliersChip, "Low outliers");
+        setOutliersMode("low")
+        
+    });
+
+    highOutliersChip.addEventListener("calciteChipSelect", () => {
+        logSelection(highOutliersChip, "High outliers");
+    });
 }
 
 export function calculateFieldStats(values) {
@@ -78,6 +105,8 @@ export function calculateFieldStats(values) {
     const variance = cleanValues.reduce((total, value) => total + Math.pow(value - avg, 2), 0) / Math.max(count - 1, 1);
     const stddev = Math.sqrt(variance);
     
+    const [lowOutlierCutoff, highOutlierCutoff] = calculateOutliers(cleanValues); // calculating outlier values
+
     return {
         count,
         min: cleanValues[0],
@@ -85,6 +114,8 @@ export function calculateFieldStats(values) {
         avg,
         median,
         stddev,
+        lowOutlierCutoff,
+        highOutlierCutoff, 
         skewness: calculateSkewness(cleanValues, count, avg, stddev),
         kurtosis: calculateKurtosis(cleanValues)
     };

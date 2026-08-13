@@ -7,11 +7,14 @@ import { initializeDialogForField } from "./fieldWorkflow";
 import { sliderStopRemove } from "../modules/slider.js";
 import { applyPickerColorToActiveStop } from "../modules/colorPicker.js";
 import { updateRampUI } from "./rampWorkflow.js";
+import { wireOutlierChipClick } from "../modules/statistics.js";
 
 
 // Role: register all listeners in one place.
 export async function wireEvents(){
-   
+
+    wireOutlierChipClick();
+
     ui.actionBar.addEventListener("click", wireActionBarClick);
         
     ui.jsonCopy.addEventListener("click", wireJSONCopyButton);
@@ -28,7 +31,6 @@ export async function wireEvents(){
     ui.inputBox.addEventListener("keydown", await wireInputBox);
 
     ui.sliderElement.addEventListener('contextmenu', wireSliderRightClick);
-
 }
 
 function wireColorPickerApply(){

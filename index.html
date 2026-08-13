@@ -45,11 +45,19 @@
               <calcite-fab id="previous-color-button" disabled label="Undo Change" text-enabled text="Undo Change" icon="undo"></calcite-fab>
               <calcite-color-picker alpha-channel id="color-picker" format="rgba"></calcite-color-picker>
               <calcite-label></calcite-label> 
-              <calcite-split-button width="full" round primary-text="Apply to Slider Stop" id="apply-button">
+              <calcite-split-button width="full" primary-text="Apply to Slider Stop" id="apply-button">
                   <calcite-dropdown-group id="slider-stop-dropdown" selection-mode="single" group-title="Slider Stop">
                   </calcite-dropdown-group>
               </calcite-split-button>
               <calcite-button label="Default" id="reset-button" width="full" disabled>Smart Mapping Defaults</calcite-button>
+              <calcite-chip-group label="outliers-group" selection-mode="multiple" scale="s">
+                  <calcite-chip icon="connection-end-left" disabled selected value="low-outliers" scale="s" label="Low Outliers" id="low-outliers-chip">
+                      Low Outliers
+                  </calcite-chip>
+                  <calcite-chip icon="connection-end-right" disabled selected value="high-outliers" scale="s" label="High Outliers" id="high-outliers-chip">
+                      High Outliers
+                  </calcite-chip>
+              </calcite-chip-group>
               <calcite-button label="Copy JSON" id="copy-json" width="full" disabled>Copy JSON</calcite-button>
             </div>
           </calcite-block> 

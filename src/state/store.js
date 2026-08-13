@@ -24,7 +24,10 @@ export const appState = {
     lastCustomStops: null,
     offsetBase: null,
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
-    outliersVisibility: "Hide Outliers", // we default to showing the outliers, giving the user the option to hide them
+    outliers: {
+        low: "Hide",
+        high: "Hide"
+    },
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
     colorPickerValue: null,
     activeSliderValue: null,
