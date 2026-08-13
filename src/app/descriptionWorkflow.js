@@ -1,6 +1,7 @@
 import * as hf from "../helperFunctions";
 import * as ui from "../modules/ui";
 import { appState } from "../state/store";
+import { setDescription } from "../state/actions";
 
 // Role: compose and show narrative text
 export function buildAndStoreDescription(){
@@ -53,7 +54,7 @@ export function buildAndStoreDescription(){
     // } 
 
     // PUTTING IT ALL TOGETHER    
-    appState.description = descParts.join(" "); // assigning it to the state variable
+    setDescription(descParts.join(" ")); // assigning it to the state variable
 
 }
 export function renderDescription(){

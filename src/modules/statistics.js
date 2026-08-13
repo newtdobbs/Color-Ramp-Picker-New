@@ -1,39 +1,37 @@
 import * as math from "mathjs";
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
-import { queryFieldValues } from "./fields";
 import { appState } from "../state/store";
 
-export function calculateKurtosis(){
-    var accumulator = incrkurtosis();
-        for (let i = 0; i < cleanValues.length; i++){ 
-            accumulator(cleanValues[i]);
-        }
-    const kurtosis = accumulator();
+export function calculateKurtosis(vals) {
+    if (!Array.isArray(vals) || vals.length < 4) {
+        return null;
+    }
 
-    appState.stats.kurtosis = kurtosis;
+    console.log("calculating kurtosis")
+    const kurtosisAccumulator = incrkurtosis();
+    vals.forEach(value => kurtosisAccumulator(value));
+    return kurtosisAccumulator();
 }
 
-export function calculateSkewness(){
-        // Calculating skewness
-        // third moment
-        let summedDiffs = 0;
-        cleanValues.forEach(v => {
-            summedDiffs += Math.pow(v - appState.stats.avg, 3);
-        });
-        const thirdMoment = summedDiffs / n;
+export function calculateSkewness(vals, n, avg, sd) {
+    if (!Array.isArray(vals) || n <= 2 || sd <= 0) {
+        return null;
+    }
 
-        // pop skew
-        const populationSkew = thirdMoment / Math.pow(appState.stats.stddev, 3);
-
-        // sample skew using bias correction
-        const sampleSkew = populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
-
-        appState.stats.skewness = sampleSkew;
+    // calculating third moment
+    const thirdMoment = vals.reduce((total, value) => total + Math.pow(value - avg, 3), 0) / n;
+    // population skew
+        const populationSkew = thirdMoment / Math.pow(sd, 3);
+    // sample skew using bias correction
+    return populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
 }
 
-export function calculateOutliers(){
+export function calculateOutliers(vals) {
+    if (!Array.isArray(vals) || !vals.length) {
+        return null;
+    }
 
-    const sorted = cleanValues.slice().sort((a, b) => a - b); // pretty sure this is unnecessary as cleanValues is already sorted
+    const sorted = vals.slice().sort((a, b) => a - b);
 
 
     const q1 = sorted[Math.floor((sorted.length / 4))];
@@ -58,21 +56,38 @@ export function calculateOutliers(){
     console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
 }
 
-export function calculateFieldStats(values){
-    const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort((a, b) => a - b); // filtering out NaN or non-numeric values (and sorting ascending)
-    const n = cleanValues.length; // the new value count AFTER filters
-    appState.stats = {
-        count: n,
-        min: math.min(cleanValues),
-        max: math.max(cleanValues),
-        avg: math.mean(cleanValues),
-        median: math.median(cleanValues),
-        stddev: math.std(cleanValues),
-        lowCutoff: null,  
-        highCutoff: null,  
-        lowOutliers: [],
-        highOutliers:[],
+export function calculateFieldStats(values) {
+    if (!Array.isArray(values)) {
+        return null;
     }
+
+    console.log("Cleaning values for values:", values)
+    const cleanValues = values.filter(value => typeof value === "number" && !Number.isNaN(value)).sort((a, b) => a - b);
+    
+    if (!cleanValues.length) {
+        return null;
+    }
+    
+    console.log("calculating basic stats")
+    const count = cleanValues.length;
+    const sum = cleanValues.reduce((total, value) => total + value, 0);
+    const avg = sum / count;
+    const median = count % 2 === 0
+    ? (cleanValues[count / 2 - 1] + cleanValues[count / 2]) / 2
+    : cleanValues[Math.floor(count / 2)];
+    const variance = cleanValues.reduce((total, value) => total + Math.pow(value - avg, 2), 0) / Math.max(count - 1, 1);
+    const stddev = Math.sqrt(variance);
+    
+    return {
+        count,
+        min: cleanValues[0],
+        max: cleanValues[cleanValues.length - 1],
+        avg,
+        median,
+        stddev,
+        skewness: calculateSkewness(cleanValues, count, avg, stddev),
+        kurtosis: calculateKurtosis(cleanValues)
+    };
 }
 
 export function buildDefaultStops(){
@@ -89,7 +104,7 @@ export function buildDefaultStops(){
     ];
 }
 
-export function calculateStops(stats){
+export function buildCustomStops(stats){
 
     // we're gonna clamp the kurtosis to prevent wild scaling
     const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
@@ -107,11 +122,11 @@ export function calculateStops(stats){
     const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
     console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
 
-    appState.sliderValues = [
-        appState.stats.avg - appState.stats.stddev, // slider value 1 is 1 sd below mean 
-        appState.stats.avg - leftOffset, // slider value 2 is at the left offset below the mean
-        appState.stats.avg, // slider value 3 is at the mean
-        appState.stats.avg + rightOffset, // slider value 4 is aat the right offset above the mean
-        appState.stats.avg + appState.stats.stddev // slider value 5 is 1 sd above mean 
+    return [
+        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev}, // slider value 1 is 1 sd below mean 
+        { color: [179, 96, 209], value: appState.stats.avg - leftOffset}, // slider value 2 is at the left offset below the mean
+        { color: [242, 207, 158], value: appState.stats.avg }, // slider value 3 is at the mean
+        { color: [110, 184, 48], value: appState.stats.avg + rightOffset}, // slider value 4 is aat the right offset above the mean
+        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev} // slider value 5 is 1 sd above mean 
     ]
 }

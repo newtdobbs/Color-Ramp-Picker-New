@@ -25,6 +25,10 @@ export function setField(field){
     appState.field = field;
 }
 
+export function setFieldsList(fieldsList){
+    appState.fieldsList = fieldsList;
+}
+
 export function setStats(stats){
     appState.stats = stats;
 }
@@ -35,6 +39,10 @@ export function setSliderValues(sliderValues){
 
 export function setColorStops(colorStops){
     appState.colorStops = colorStops;
+}
+
+export function setDefaultValues(defaultValues){
+    appState.defaultValues = defaultValues;
 }
 
 export function setDefaultStops(defaultStops){
@@ -51,6 +59,10 @@ export function setLastCustomValues(lastCustomValues){
 
 export function setSymbologyMode(symbologyMode){
     appState.symbologyMode = symbologyMode;
+}
+
+export function setDescription(description){
+    appState.description = description;
 }
 
 export function resetFieldState(){
@@ -89,8 +101,8 @@ export function resetRampState(){
     }
     if (ui.resetButton) {
         ui.resetButton.disabled = true;
-        ui.resetButton.textContent = "Default";
-        ui.resetButton.label = "Default";
+        ui.resetButton.textContent = "Smart Mapping Defaults";
+        ui.resetButton.label = "Smart Mapping Defaults";
     }
     if (ui.jsonCopy) {
         ui.jsonCopy.disabled = true;

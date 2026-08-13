@@ -1,6 +1,10 @@
 // Role: field filtering and raw value fetch.
 import { queryAllFeatures } from '@esri/arcgis-rest-feature-service';
 const Query = await $arcgis.import("@arcgis/core/rest/support/Query.js");
+import * as hf from "../helperFunctions";
+import { appState } from "../state/store";
+import * as actions from "../state/actions"
+
 
 /* 
 LOGIC FOR CREATING THE LIST OF FIELDS
@@ -31,7 +35,7 @@ export function getSelectableFields() {
             fieldsList.appendChild(listItem);
 
             listItem.addEventListener("calciteListItemSelect", async () => {
-                appState.field = appState.field === field ? null : field; // this will allow users to deselect a field without having to remove it from the list
+                actions.setField(appState.field === field ? null : field); // this will allow users to deselect a field without having to remove it from the list
 
                 console.log(`Selected field '${appState.field.alias}' information: ${appState.field}`)
                 // seleecting a field will remove any previous warnings
@@ -44,7 +48,7 @@ export function getSelectableFields() {
                 hf.warnUser('Removing field: ', field.alias);
                 // console.log('removing field: ', field.alias); // log for debug
                 if (appState.field.alias === field.alias){
-                    appState.field = null; // if the user removes the currently selected field, we'll clear the state variable
+                    actions.setField(null); // if the user removes the currently selected field, we'll clear the state variable
                     // warnUser('Select a field from the fields list')
                 }
                 listItem.remove(); // removing the list item from the dom
@@ -52,29 +56,38 @@ export function getSelectableFields() {
         }
     });
 
-    appState.fieldsList = fieldsList; // adding the fields list to the global state
+    actions.setFieldsList(fieldsList); // adding the fields list to the global state
 }
 
 // NEED TO THINK REALLY CRITICALLY ABOUT WHETHER WE WANT TO CLEAN THE FIELD VALUES WTIHIN THIS FUNCTION
 export async function queryFieldValues() {
     try {
+        if (!appState.layer || !appState.field?.name) {
+            hf.warnUser("Select a valid layer and numeric field before querying values.");
+            return null;
+        }
+
+        const layerUrl = appState.layer?.parsedUrl?.path || appState.layer?.url;
+        if (!layerUrl) {
+            hf.warnUser("Unable to determine the selected layer URL.");
+            return null;
+        }
         
         const t0 = performance.now(); // log for debug
         const results = await queryAllFeatures({
-            url: appState.layer.parsedUrl.path,
-            outFields: appState.field.name,
-            returnGeometry: false,
+            url: layerUrl,
+            outFields: [appState.field.name],
+            returnGeometry: false
         });
         const t1 = performance.now(); // log for debug
         console.log(`Querying all records records took ${Math.floor(t1 - t0)} milliseconds:`, results); // log for debug
         const values = results.features.map(f => f.attributes[appState.field.name]); // this is what actually gets the data value in the selected field for each feature 
-        // const cleanValues = values.filter(v => typeof v === "number" && !isNaN(v)).sort((a, b) => a - b); // maybe uncomment
 
         return values
         
         
     } catch (err) {
-        hf.warnUser(`Error querying all features for field:`, );
+        hf.warnUser(`Error querying all features for field ${appState.field?.name || "(unknown)"}.`);
         console.error('err', err);
         return null;
     }
