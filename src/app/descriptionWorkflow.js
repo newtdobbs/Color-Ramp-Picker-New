@@ -45,6 +45,18 @@ export function buildAndStoreDescription(){
         const kurtosisDirection = appState.stats.kurtosis > 0 ? "leptokurtic (peaked)" : "platykurtic (flat)";
         descParts.push(`a ${severity}${kurtosisDirection} distribution.`);
     }
+    
+    // OUTLIERS
+    if (appState.stats.lowOutliers.length > 0 || appState.stats.highOutliers.length > 0) {
+        descParts.push(`There are outliers in your dataset, consider restricting the slider values to`);
+        if (appState.stats.lowOutliers.length > 0){
+            descParts.push(`above ${appState.stats.lowOutlierCutoff}`);
+        }
+        if (appState.stats.highOutliers.length > 0){
+            descParts.push(`below ${appState.stats.highOutlierCutoff}`);
+        }
+        descParts.push(".")
+    }
 
     // // OUTLIERS
     // if (math.abs(appState.stats.skewness) >  5) {

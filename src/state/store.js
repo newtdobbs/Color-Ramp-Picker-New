@@ -25,8 +25,8 @@ export const appState = {
     offsetBase: null,
     symbologyMode: "Custom", // we use CUSTOM stops on first load, so we give user option to show SM defaults
     outliers: {
-        low: "Hide",
-        high: "Hide"
+        low: "Visible",
+        high: "Visible"
     },
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
     colorPickerValue: null,
