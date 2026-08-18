@@ -1,9 +1,115 @@
-import * as math from "mathjs";
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 import { appState } from "../state/store";
 import { lowOutliersChip, highOutliersChip } from "./ui";
 import { setOutliersMode } from "../state/actions";
-import { updateRampUI } from "../app/rampWorkflow";
+import { classifyDistribution } from "../app/ruleset";
+
+function quantileFromSorted(sortedVals, p) {
+    if (!Array.isArray(sortedVals) || !sortedVals.length) {
+        return null;
+    }
+
+    if (p <= 0) {
+        return sortedVals[0];
+    }
+
+    if (p >= 1) {
+        return sortedVals[sortedVals.length - 1];
+    }
+
+    const index = (sortedVals.length - 1) * p;
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+
+    if (lower === upper) {
+        return sortedVals[lower];
+    }
+
+    const weight = index - lower;
+    return sortedVals[lower] + (sortedVals[upper] - sortedVals[lower]) * weight;
+}
+
+function summarizeQuantiles(sortedVals) {
+    return {
+        p01: quantileFromSorted(sortedVals, 0.01),
+        p05: quantileFromSorted(sortedVals, 0.05),
+        p10: quantileFromSorted(sortedVals, 0.1),
+        p25: quantileFromSorted(sortedVals, 0.25),
+        p50: quantileFromSorted(sortedVals, 0.5),
+        p75: quantileFromSorted(sortedVals, 0.75),
+        p90: quantileFromSorted(sortedVals, 0.9),
+        p95: quantileFromSorted(sortedVals, 0.95),
+        p99: quantileFromSorted(sortedVals, 0.99)
+    };
+}
+
+function interpolateFromQuantileSummary(stats, p) {
+    if (!stats || !stats.quantiles) {
+        return null;
+    }
+
+    const table = [
+        [0, stats.min],
+        [0.01, stats.quantiles.p01],
+        [0.05, stats.quantiles.p05],
+        [0.1, stats.quantiles.p10],
+        [0.25, stats.quantiles.p25],
+        [0.5, stats.quantiles.p50],
+        [0.75, stats.quantiles.p75],
+        [0.9, stats.quantiles.p90],
+        [0.95, stats.quantiles.p95],
+        [0.99, stats.quantiles.p99],
+        [1, stats.max]
+    ].filter(([, value]) => Number.isFinite(value));
+
+    if (!table.length) {
+        return null;
+    }
+
+    if (p <= table[0][0]) {
+        return table[0][1];
+    }
+
+    if (p >= table[table.length - 1][0]) {
+        return table[table.length - 1][1];
+    }
+
+    for (let i = 1; i < table.length; i += 1) {
+        const [x1, y1] = table[i];
+        const [x0, y0] = table[i - 1];
+        if (p <= x1) {
+            const width = x1 - x0;
+            if (width <= 0) {
+                return y1;
+            }
+            const t = (p - x0) / width;
+            return y0 + (y1 - y0) * t;
+        }
+    }
+
+    return table[table.length - 1][1];
+}
+
+function enforceIncreasing(values, min, max) {
+    const clamped = values.map(value => Math.min(max, Math.max(min, value)));
+    const gap = Math.max((max - min) / 5000, Number.EPSILON);
+
+    for (let i = 1; i < clamped.length; i += 1) {
+        if (clamped[i] <= clamped[i - 1]) {
+            clamped[i] = Math.min(max, clamped[i - 1] + gap);
+        }
+    }
+
+    for (let i = clamped.length - 2; i >= 0; i -= 1) {
+        if (clamped[i] >= clamped[i + 1]) {
+            clamped[i] = Math.max(min, clamped[i + 1] - gap);
+        }
+    }
+
+    clamped[0] = min;
+    clamped[clamped.length - 1] = max;
+    return clamped;
+}
 
 
 export function calculateKurtosis(vals) {
@@ -35,27 +141,23 @@ export function calculateOutliers(vals) {
         return null;
     }
 
-    // const sorted = vals.slice().sort((a, b) => a - b);
-
-
-    const q1 = vals[Math.floor((vals.length / 4))];
-    // console.log(`Q1 has been determined as ${q1}`)
-
-    const q3 = vals[Math.ceil((vals.length * (3 / 4))) - 1];
-    // console.log(`Q3 has been determined as ${q3}`)
+    const q1 = quantileFromSorted(vals, 0.25);
+    const q3 = quantileFromSorted(vals, 0.75);
 
     const iqr = q3 - q1;
 
-        // if the dataset doesn't go below zero, we'll clamp the low cutoff at 0
-    const lowCutoff = vals[0] < 0  ? q1- 1.5 * iqr : math.max(q1 - 1.5 * iqr, 0); 
+    // If the dataset doesn't go below zero, clamp the low cutoff at zero.
+    const lowCutoff = vals[0] < 0 ? q1 - 1.5 * iqr : Math.max(q1 - 1.5 * iqr, 0);
     const highCutoff = q3 + 1.5 * iqr;
 
     const lowOutliers = vals.filter(v => v < lowCutoff);
+    lowOutliersChip.disabled = true;
     if (lowOutliers.length > 0) { 
         console.log("Low outliers:", lowOutliers)
         lowOutliersChip.disabled = false; 
     }
     const highOutliers = vals.filter(v => v > highCutoff);
+    highOutliersChip.disabled = true;
     if (highOutliers.length > 0) { 
         console.log("High outliers:", highOutliers)
         highOutliersChip.disabled = false;
@@ -98,7 +200,7 @@ export function calculateFieldStats(values) {
         return null;
     }
 
-    const cleanValues = values.filter(value => typeof value === "number" && !Number.isNaN(value)).sort((a, b) => a - b);
+    const cleanValues = values.filter(value => typeof value === "number" && !Number.isNaN(value)).sort((a, b) => a - b); // cleaning and sorting ascending
     
     if (!cleanValues.length) {
         return null;
@@ -114,7 +216,10 @@ export function calculateFieldStats(values) {
     const variance = cleanValues.reduce((total, value) => total + Math.pow(value - avg, 2), 0) / Math.max(count - 1, 1);
     const stddev = Math.sqrt(variance);
     
-    const [lowOutlierCutoff, lowOutliers, highOutlierCutoff, highOutliers] = calculateOutliers(cleanValues); // calculating outlier values
+    const [lowOutlierCutoff, lowOutliers, highOutlierCutoff, highOutliers] = calculateOutliers(cleanValues);
+    const quantiles = summarizeQuantiles(cleanValues); // calculating important quantiles (1%, 25%, 75%, etc)
+    const uniqueCount = new Set(cleanValues).size;
+    const outlierCount = lowOutliers.length + highOutliers.length;
 
     return {
         count,
@@ -123,6 +228,11 @@ export function calculateFieldStats(values) {
         avg,
         median,
         stddev,
+        quantiles,
+        uniqueCount,
+        uniqueRatio: count > 0 ? uniqueCount / count : 1,
+        isIntegerLike: cleanValues.every(Number.isInteger),
+        outlierRate: count > 0 ? outlierCount / count : 0,
         lowOutlierCutoff,
         lowOutliers, 
         highOutlierCutoff, 
@@ -132,43 +242,56 @@ export function calculateFieldStats(values) {
     };
 }
 
-export function buildDefaultStops(){
-    if (!appState.stats) {
+export function buildDefaultStops(stats = appState.stats){
+    if (!stats) {
         return [];
     }
 
     return [
-        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev },
-        { color: [179, 96, 209], value: appState.stats.avg - appState.stats.stddev / 2 },
-        { color: [242, 207, 158], value: appState.stats.avg },
-        { color: [110, 184, 48], value: appState.stats.avg + appState.stats.stddev / 2 },
-        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev }
+        { color: [129, 0, 230], value: stats.avg - stats.stddev },
+        { color: [179, 96, 209], value: stats.avg - stats.stddev / 2 },
+        { color: [242, 207, 158], value: stats.avg },
+        { color: [110, 184, 48], value: stats.avg + stats.stddev / 2 },
+        { color: [43, 153, 0], value: stats.avg + stats.stddev }
     ];
 }
 
-export function buildCustomStops(stats){
+export function buildCustomStops(stats = appState.stats){
+    if (!stats) {
+        return [];
+    }
 
-    // we're gonna clamp the kurtosis to prevent wild scaling
-    const k = Math.max(-5, Math.min(5, appState.stats.kurtosis));
-    // console.log(`kurtosis ${appState.stats.kurtosis} has been clamped to ${k}.`)
-    const kScale =  1 / (1 + 0.3 * k); 
-    // console.log(`kurtosis scaling factor has been determined as ${kScale}.`)
+    const profile = classifyDistribution(stats);
+    const stopPercentiles = profile.stopPercentiles || [0, 0.25, 0.5, 0.75, 1];
 
-    // we're also gonna clamp skew to prevent wild scaling
-    const s = Math.max(-5, Math.min(5, appState.stats.skewness));
-    // console.log(`skewness ${appState.stats.skewness} has been clamped to ${s}.`)
-    const leftSkewFactor = 1 - (0.2 * s);
-    const rightSkewFactor = 1 + (0.2 * s);
+    const lowBound = appState.outliers.low === "Hidden" && Number.isFinite(stats.lowOutlierCutoff)
+        ? Math.max(stats.min, stats.lowOutlierCutoff)
+        : stats.min;
+    const highBound = appState.outliers.high === "Hidden" && Number.isFinite(stats.highOutlierCutoff)
+        ? Math.min(stats.max, stats.highOutlierCutoff)
+        : stats.max;
 
-    const leftOffset = appState.stats.stddev * kScale * leftSkewFactor
-    const rightOffset = appState.stats.stddev * kScale * rightSkewFactor
-    console.log(`Offsets determined as: L(${leftOffset}), R(${rightOffset})`)
+    if (!Number.isFinite(lowBound) || !Number.isFinite(highBound) || highBound <= lowBound) {
+        return buildDefaultStops(stats);
+    }
+
+    const rawValues = stopPercentiles.map(percentile => {
+        const interpolated = interpolateFromQuantileSummary(stats, percentile);
+        return Number.isFinite(interpolated) ? interpolated : stats.avg;
+    });
+
+    rawValues[0] = lowBound;
+    rawValues[rawValues.length - 1] = highBound;
+    const values = enforceIncreasing(rawValues, lowBound, highBound);
+
+    appState.stats.distributionProfile = profile;
+    console.log("Distribution profile selected:", profile.name, profile.rationale);
 
     return [
-        { color: [129, 0, 230], value: appState.stats.avg - appState.stats.stddev}, // slider value 1 is 1 sd below mean 
-        { color: [179, 96, 209], value: appState.stats.avg - leftOffset}, // slider value 2 is at the left offset below the mean
-        { color: [242, 207, 158], value: appState.stats.avg }, // slider value 3 is at the mean
-        { color: [110, 184, 48], value: appState.stats.avg + rightOffset}, // slider value 4 is aat the right offset above the mean
-        { color: [43, 153, 0], value: appState.stats.avg + appState.stats.stddev} // slider value 5 is 1 sd above mean 
-    ]
+        { color: [129, 0, 230], value: values[0] },
+        { color: [179, 96, 209], value: values[1] },
+        { color: [242, 207, 158], value: values[2] },
+        { color: [110, 184, 48], value: values[3] },
+        { color: [43, 153, 0], value: values[4] }
+    ];
 }
