@@ -33,7 +33,3 @@ export const appState = {
     activeSliderValue: null,
     profile: ""
 }
-
-export function getState(){
-    return appState;
-}

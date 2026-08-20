@@ -212,10 +212,39 @@ export function wireOutlierChipClick(){
         queueMicrotask(() => {
             setOutliersMode(chipName, chip.selected);
             const cutoff = appState.stats[`${chipName}OutlierCutoff`]
-            if (!chip.selected){
+            
+            // HIDING STOPS
+            if (!chip.selected){ // if its unselected, we want to hide outliers, injecting black into ends
                 console.log(`Need to hide ${chipName} outliers with cutoff: ${cutoff}`)
-            } else {
+                // HIDING LOW STOPS
+                if (chipName="low"){
+                    // if the first stop goes below the low outlier cutoff, we bring it to the cuttof
+                    if(appState.colorStops[0].value < appState.stats.lowOutlierCutoff){
+                    
+
+                    // otherwise we'll add a stop at the low cutoff of pure black
+                    
+
+                // HIDING HIGH STOPS
+                } else {
+
+                }
+                
+                
+                // injecting black into low outliers first
+                    // change the value to appState.stats.lowOutlierCutoff
+                    // change the color to black
+                    //
+                } else {
+                    // if the 
+                }
+                // then injecting black high outliers
+            
+            // SHOWING STOPS
+            } else { // if it is selected, we want to show outliers, restoring color to ends
                 console.log(`Need to show ${chipName} outliers`)
+                // showing low outliers 
+                // 
             }
             // recalculateStats(); // need to first recalculate stats
             // updateRampUI(); // then update the symbology to reflect
@@ -223,7 +252,7 @@ export function wireOutlierChipClick(){
     };
 
     lowOutliersChip.addEventListener("calciteChipSelect", () => {
-        logSelection(lowOutliersChip, "low");
+        logSelection(lowOutliersChip, "low", );
     });
     
     highOutliersChip.addEventListener("calciteChipSelect", () => {

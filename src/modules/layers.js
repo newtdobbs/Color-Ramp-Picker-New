@@ -50,15 +50,6 @@ export async function getServiceLayers(itemId) {
     }
 }
 
-export function normalizeItemIdInput(){
-    const itemIds = (ui.inputBox?.value || "")
-        .split(/[\s,]+/)
-        .map(value => value.trim())
-        .filter(Boolean);
-
-    return Array.from(new Set(itemIds))[0] || null;
-}
-
 export function createDropdownForService() {
     ui.layerSelector.innerHTML = ""; // removing old options, in case sconsecutive layers dont have the same sublayers
     ui.layerSelector.placeholder = 'Select a Layer';

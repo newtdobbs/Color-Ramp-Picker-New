@@ -5,7 +5,6 @@ import * as hf from "../helperFunctions.js"
 import { getServiceLayers, createDropdownForService } from "../modules/layers";
 import { initializeDialogForField } from "./fieldWorkflow";
 import { sliderStopRemove } from "../modules/slider.js";
-import { applyPickerColorToActiveStop } from "../modules/colorPicker.js";
 import { updateRampUI } from "./rampWorkflow.js";
 import { wireOutlierChipClick } from "../modules/statistics.js";
 
@@ -13,24 +12,23 @@ import { wireOutlierChipClick } from "../modules/statistics.js";
 // Role: register all listeners in one place.
 export async function wireEvents(){
 
-    wireOutlierChipClick();
-
+    
     ui.actionBar.addEventListener("click", wireActionBarClick);
-        
+    
     ui.jsonCopy.addEventListener("click", wireJSONCopyButton);
-
-    ui.colorPicker.addEventListener("calciteColorPickerChange", wireColorPickerChange);
-
+    
     ui.resetButton.addEventListener("click",  wireResetButton);
-
+    
     ui.applyColorButton.addEventListener("click", wireColorPickerApply);
     ui.applyColorButton.addEventListener("calciteSplitButtonPrimaryClick", wireApplyColorToSelectedStop);
-
+    
     ui.generateButton.addEventListener("click", await wireGenerateButton);
-
+    
     ui.inputBox.addEventListener("keydown", await wireInputBox);
-
+    
     ui.sliderElement.addEventListener('contextmenu', wireSliderRightClick);
+    
+    wireOutlierChipClick();
 }
 
 function wireColorPickerApply(){
@@ -39,12 +37,12 @@ function wireColorPickerApply(){
     }
 
     const sliderValues = Array.isArray(appState.sliderValues) ? appState.sliderValues : [];
-    const signature = sliderValues
+    const signature = sliderValues // this builds a signature of stop1|stop2|stop3...
         .map((value) => Number.isFinite(value) ? value.toFixed(6) : "NaN")
         .join("|");
 
     // Avoid rebuilding on every click; rebuild only when slider stops actually change.
-    const needsRebuild =
+    const needsRebuild = // if the slider values change, or if the slider stops move
         ui.sliderStopDropdown.children.length !== sliderValues.length ||
         ui.sliderStopDropdown.dataset.valuesSignature !== signature;
 
@@ -155,7 +153,6 @@ function wireApplyColorToSelectedStop() {
 
 function resetInnerPanelScrollToTop() {
     ui.innerPanel.scrollContentTo({ left: 0, top: 0, behavior: "auto" });
-
 }
 
 function wireActionBarClick(event){
@@ -210,11 +207,6 @@ function wireJSONCopyButton(){
     } catch (err) {
         console.error('Failed to copy JSON with error: ', err);
     }
-}
-
-
-function wireColorPickerChange(){
-    applyPickerColorToActiveStop();
 }
 
 function switchActionBarTab(actionName){
@@ -347,15 +339,4 @@ async function wireGenerateButton() {
 function wireSliderRightClick(event){
     sliderStopRemove(event);
     wireColorPickerApply();
-}
-
-export function unwireEvents(){
-    ui.actionBar.removeEventListener("click", wireActionBarClick);
-    ui.jsonCopy.removeEventListener("click", wireJSONCopyButton);
-    ui.resetButton.removeEventListener("click", wireResetButton);
-    ui.colorPicker.removeEventListener("calciteColorPickerChange", wireColorPickerChange);
-    ui.applyColorButton.removeEventListener("click", wireColorPickerApply);
-    ui.applyColorButton.removeEventListener("calciteSplitButtonPrimaryClick", wireApplyColorToSelectedStop);
-    ui.generateButton.removeEventListener("click", wireGenerateButton);
-    ui.inputBox.removeEventListener("keydown", wireInputBox);
 }

@@ -2,13 +2,8 @@ import { queryFieldValues } from "../modules/fields";
 import histogram from "@arcgis/core/smartMapping/statistics/histogram.js";
 import { getSchemeByName } from "@arcgis/core/smartMapping/symbology/color.js";
 const colorRendererCreator = await $arcgis.import("@arcgis/core/smartMapping/renderers/color.js");
-import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 import * as ui from "../modules/ui";
 import * as hf from "../helperFunctions";
-import * as constants from "../modules/constants";
-import { getServiceLayers, createDropdownForService } from "../modules/layers";
-import { createMapForSelectedLayer } from "../modules/map";
-import { renderFieldList } from "../modules/renderFieldList";
 import { attachSliderListeners, detachSliderListeners } from "../modules/slider";
 import { renderSwatchGradient } from "../modules/renderSwatch";
 import { renderAddStopButtons } from "../modules/renderButtons";
@@ -38,19 +33,6 @@ function applyStateStopsToLayerRenderer() {
     }));
     renderer.visualVariables[colorVarIndex] = colorVariable;
     appState.layer.renderer = renderer;
-}
-
-/**
- * 
- * @param {string} rawValue the raw input typed into the input box
- * @returns an array of the item IDs split on whitespaces, or the hardcoded default item ID
- */
-function normalizeItemIdInput(rawValue) {
-    const itemIds = (rawValue || "")
-        .split(/[\s,]+/)
-        .map(value => value.trim())
-        .filter(Boolean);
-    return Array.from(new Set(itemIds))[0] || appState.defaultItemID;
 }
 
 /**

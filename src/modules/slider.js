@@ -4,7 +4,6 @@ import * as actions from "../state/actions"
 import * as hf from "../helperFunctions";
 import { hideAddStopButtons, showAddStopButtons } from "./renderButtons";
 import { updateRampUI } from "../app/rampWorkflow";
-import * as picker from "../modules/colorPicker"
 
 let pendingActiveValueResetId = null;
 
@@ -17,7 +16,6 @@ function clearPendingActiveValueReset() {
 
 function commitActiveSliderValue(value) {
     actions.setActiveSliderValue(value);
-    picker.syncPickerFromActiveStop();
     appState.sliderActive = typeof value === "number";
 }
 

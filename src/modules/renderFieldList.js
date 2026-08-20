@@ -53,8 +53,3 @@ export function renderFieldList(){
 
     appState.fieldsList = fieldsList; // adding the fields list to the global state
 }
-
-export function clearFieldList(){
-    ui.fieldsLabel.textContent = "";
-    appState.fieldsList = null;
-}
