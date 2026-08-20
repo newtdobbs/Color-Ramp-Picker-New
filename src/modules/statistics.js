@@ -3,7 +3,14 @@ import { appState } from "../state/store";
 import { lowOutliersChip, highOutliersChip } from "./ui";
 import { setOutliersMode } from "../state/actions";
 import { classifyDistribution } from "../app/ruleset";
+import { setProfile } from "../state/actions";
 
+/**
+ * 
+ * @param {array} sortedVals an array of values, sorted ascending
+ * @param {float} p the quantile to calculate (10%, 50%, 75%, etc) 
+ * @returns the distribution value at the provided quantile
+ */
 function quantileFromSorted(sortedVals, p) {
     if (!Array.isArray(sortedVals) || !sortedVals.length) {
         return null;
@@ -29,6 +36,11 @@ function quantileFromSorted(sortedVals, p) {
     return sortedVals[lower] + (sortedVals[upper] - sortedVals[lower]) * weight;
 }
 
+/**
+ * 
+ * @param {array} sortedVals an array of values, sorted ascending
+ * @returns dictionary of important quantiles 
+ */
 function summarizeQuantiles(sortedVals) {
     return {
         p01: quantileFromSorted(sortedVals, 0.01),
@@ -43,6 +55,12 @@ function summarizeQuantiles(sortedVals) {
     };
 }
 
+/**
+ * 
+ * @param {dictionary} stats dictionary in app state of the data statistics 
+ * @param {*} p the percentile
+ * @returns an interpolated value using the quantile summary
+ */
 function interpolateFromQuantileSummary(stats, p) {
     if (!stats || !stats.quantiles) {
         return null;
@@ -66,11 +84,11 @@ function interpolateFromQuantileSummary(stats, p) {
         return null;
     }
 
-    if (p <= table[0][0]) {
+    if (p <= table[0][0]) { // returning the min if the percentile is lower than the minimum value of stats
         return table[0][1];
     }
 
-    if (p >= table[table.length - 1][0]) {
+    if (p >= table[table.length - 1][0]) { // returning the max if the percentile is greater than the maximum value of stats
         return table[table.length - 1][1];
     }
 
@@ -90,6 +108,13 @@ function interpolateFromQuantileSummary(stats, p) {
     return table[table.length - 1][1];
 }
 
+/**
+ * 
+ * @param {array} values array of values over which to enforce increasing order
+ * @param {number} min the min of the values range
+ * @param {*} max the max of the values range
+ * @returns array of values clamped within the min,max range
+ */
 function enforceIncreasing(values, min, max) {
     const clamped = values.map(value => Math.min(max, Math.max(min, value)));
     const gap = Math.max((max - min) / 5000, Number.EPSILON);
@@ -111,7 +136,11 @@ function enforceIncreasing(values, min, max) {
     return clamped;
 }
 
-
+/**
+ * 
+ * @param {array} vals array of values for which to calculate kurtosis
+ * @returns calculated kurtosis
+ */
 export function calculateKurtosis(vals) {
     if (!Array.isArray(vals) || vals.length < 4) {
         return null;
@@ -136,6 +165,11 @@ export function calculateSkewness(vals, n, avg, sd) {
     return populationSkew * Math.sqrt(n * (n - 1)) / (n - 2);
 }
 
+/**
+ * 
+ * @param {array} vals array of values for which to calculate outliers 
+ * @returns the low cutoff (number) and values below it, and high cutoff (number) and values above it (array)
+ */
 export function calculateOutliers(vals) {
     if (!Array.isArray(vals) || !vals.length) {
         return null;
@@ -170,7 +204,9 @@ export function calculateOutliers(vals) {
     console.log(`Low outliers: ${appState.stats.lowOutliers.length}, high outliers: ${appState.stats.highOutliers.length}`)
 }
 
-
+/**
+ * wires the outlier chips to hide/show outliers based on their selection
+ */
 export function wireOutlierChipClick(){
     const logSelection = (chip, chipName) => {
         queueMicrotask(() => {
@@ -195,6 +231,11 @@ export function wireOutlierChipClick(){
     });
 }
 
+/**
+ * 
+ * @param {array} values array of raw field values for which to calculate statistics
+ * @returns a dictionary with important descriptive statistics of the distribution
+ */
 export function calculateFieldStats(values) {
     if (!Array.isArray(values)) {
         return null;
@@ -242,6 +283,11 @@ export function calculateFieldStats(values) {
     };
 }
 
+/**
+ * 
+ * @param {dictionary} stats dictionary in app state of the data statistics 
+ * @returns array of color stops for the smart mapping defaults: 1 sd above and below mean, mean, and the midpoints
+ */
 export function buildDefaultStops(stats = appState.stats){
     if (!stats) {
         return [];
@@ -262,6 +308,8 @@ export function buildCustomStops(stats = appState.stats){
     }
 
     const profile = classifyDistribution(stats);
+    setProfile(profile);
+
     const stopPercentiles = profile.stopPercentiles || [0, 0.25, 0.5, 0.75, 1];
 
     const lowBound = appState.outliers.low === "Hidden" && Number.isFinite(stats.lowOutlierCutoff)

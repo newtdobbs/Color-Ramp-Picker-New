@@ -17,6 +17,9 @@ import { appState } from "../state/store";
 import * as actions from "../state/actions";
 import { buildCustomStops, buildDefaultStops, calculateFieldStats } from "../modules/statistics";
 
+/**
+ * finds the layer's visual variables and applies the app state's color stops to it
+ */
 function applyStateStopsToLayerRenderer() {
     if (!appState.layer || !appState.layer.renderer || !Array.isArray(appState.colorStops)) {
         return;
@@ -37,6 +40,11 @@ function applyStateStopsToLayerRenderer() {
     appState.layer.renderer = renderer;
 }
 
+/**
+ * 
+ * @param {string} rawValue the raw input typed into the input box
+ * @returns an array of the item IDs split on whitespaces, or the hardcoded default item ID
+ */
 function normalizeItemIdInput(rawValue) {
     const itemIds = (rawValue || "")
         .split(/[\s,]+/)
@@ -45,7 +53,9 @@ function normalizeItemIdInput(rawValue) {
     return Array.from(new Set(itemIds))[0] || appState.defaultItemID;
 }
 
-
+/**
+ * main workhorse function which uses subfunctions to populate the bottom and side panels
+ */
 export async function initializeDialogForField() {
     try {
         console.log("Querying all features for the field")
@@ -65,7 +75,7 @@ export async function initializeDialogForField() {
             return;
         }
 
-        appState.stats = stats;
+        actions.setStats(stats);
         console.log("Stats has been calculated as:", stats)
         
         if (appState.stats.count < 20) {
@@ -90,7 +100,7 @@ export async function initializeDialogForField() {
         console.log("Renderer result", rendererResult)
         
         appState.layer.renderer = rendererResult.renderer;
-        appState.layer.visible = true;
+        actions.setLayerVisibility(true);
 
         
         // DEFAULTS
@@ -146,88 +156,4 @@ export async function initializeDialogForField() {
     } catch (error) {
         console.error("Error creating histogram:", error);
     }
-}
-
-// Role: end-to-end field pipeline.
-export async function handleItemIDSubmit(event) {
-    if (!event || event.key !== "Enter") {
-        return false;
-    }
-
-    event.preventDefault();
-    appState.inputItemID = normalizeItemIdInput(ui.inputBox.value);
-    appState.serviceInfo = await getServiceLayers(appState.inputItemID);
-
-    if (appState.serviceInfo) {
-        ui.fieldBlock.heading = `Layer: ${appState.serviceInfo.title}`;
-        createDropdownForService();
-    } else {
-        hf.warnUser(`No valid information attained for the service with the input item ID: ${appState.inputItemID}`);
-    }
-
-    ui.inputBox.value = "";
-    if (appState.fieldsList) {
-        appState.fieldsList.innerHTML = "";
-    }
-
-    return Boolean(appState.serviceInfo);
-}
-export async function handleLayerSelect(layerSelection) {
-    if (!layerSelection) {
-        return false;
-    }
-
-    appState.layerSelection = layerSelection;
-    await createMapForSelectedLayer();
-    renderFieldList();
-    return true;
-}
-export function handleFieldSelect(selectedField) {
-    if (!selectedField) {
-        appState.field = null;
-        return null;
-    }
-
-    appState.field = appState.field === selectedField ? null : selectedField;
-    return appState.field;
-}
-export async function handleGenerateHistogram() {
-    if (!appState.field) {
-        hf.warnUser("Select a field from the fields list");
-        return false;
-    }
-
-    if (!constants.goodFieldTypes.includes(appState.field.type)) {
-        hf.warnUser("Please ensure the selected field is one of the following types: small-integer, integer, single, double, long, big-integer.");
-        appState.field = null;
-        return false;
-    }
-
-    if (!constants.goodFieldValueTypes.includes(appState.field.valueType)) {
-        hf.warnUser("Please ensure the selected field is one of the following value types: count-or-amount, currency, percentage-or-ratio.");
-        appState.field = null;
-        return false;
-    }
-
-    ui.bottomPanel.hidden = false;
-    ui.bottomPanel.loading = true;
-
-    const testPanel = document.getElementById("test-panel");
-    try {
-        testPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
-        testPanel.description = `Selected Layer: ${appState.layer.title}`;
-
-        await initializeDialogForField();
-        ui.description.textContent = appState.description || "";
-        document.querySelector("[data-action-id=ramp]").disabled = false;
-    } catch (error) {
-        console.log("Error generating histogram:", error);
-        testPanel.heading = "Error Generating Color Ramp Information";
-        return false;
-    } finally {
-        ui.bottomPanel.loading = false;
-        ui.bottomPanel.hidden = false;
-    }
-
-    return true;
 }

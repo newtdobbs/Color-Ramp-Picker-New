@@ -14,7 +14,7 @@ export const appState = {
     sliderValues: null, // the values currently stored in the slider element
     colorStops: null, // the color stops (color and value) currently stored in the slider elemnt
     buttons: [], // the buttons for adding stops
-    defaultItemID: "c9faa265b82848498bc0a8390c0afa65",
+    defaultItemID: "c9faa265b82848498bc0a8390c0afa65", // Median Household Income
     fieldsList: null, // the full fields list for the service
     sliderActive: false,
     switchValue: "static", // we defualt to static changes
@@ -31,7 +31,7 @@ export const appState = {
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
     colorPickerValue: null,
     activeSliderValue: null,
-    colorHistory: []
+    profile: ""
 }
 
 export function getState(){

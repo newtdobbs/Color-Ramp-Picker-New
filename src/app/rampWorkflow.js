@@ -1,5 +1,6 @@
 import * as ui from "../modules/ui";
 import * as hf from "../helperFunctions";
+import * as actions from "../state/actions"
 import { appState } from "../state/store";
 import { initializeDialogForField } from "./fieldWorkflow";
 import { buildAndStoreDescription, renderDescription } from "./descriptionWorkflow";
@@ -7,27 +8,27 @@ import { updateButtons } from "../modules/renderButtons";
 
 function syncStopsFromSliderValues() {
     const sliderValues = [...ui.sliderElement.values];
-    appState.sliderValues = sliderValues;
+    actions.setSliderValues(sliderValues)
 
     const previousStops = Array.isArray(appState.colorStops) ? appState.colorStops : [];
     if (previousStops.length === sliderValues.length) {
-        appState.colorStops = previousStops.map((stop, index) => ({
+        actions.setColorStops(previousStops.map((stop, index) => ({
             color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
             value: sliderValues[index]
-        }));
+        })));
     } else {
-        appState.colorStops = sliderValues.map((value, index) => {
+        actions.setColorStops(sliderValues.map((value, index) => {
             const fallbackStop = previousStops[Math.min(index, Math.max(previousStops.length - 1, 0))];
             const fallbackColor = fallbackStop && Array.isArray(fallbackStop.color) ? [...fallbackStop.color] : [0, 0, 0];
             return {
                 color: fallbackColor,
                 value
             };
-        });
+        }));
     }
 
-    appState.lastCustomValues = [...appState.sliderValues];
-    appState.lastCustomStops = appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] }));
+    actions.setLastCustomValues([...appState.sliderValues]);
+    actions.setLastCustomStops(appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] })));
 }
 
 function updateHistogramFromState() {
@@ -116,12 +117,12 @@ export function handleResetToggle() {
     }
 
     if (appState.symbologyMode === "Custom") {
-        appState.lastCustomValues = [...appState.sliderValues];
-        appState.lastCustomStops = appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] }));
+        actions.setLastCustomValues([...appState.sliderValues]);
+        actions.setLastCustomStops(appState.colorStops.map(stop => ({ ...stop, color: [...stop.color] })));
 
-        appState.sliderValues = [...defaultValues];
-        appState.colorStops = defaultStops.map(stop => ({ ...stop, color: [...stop.color] }));
-        appState.symbologyMode = "Default";
+        actions.setSliderValues([...defaultValues]);
+        actions.setColorStops(defaultStops.map(stop => ({ ...stop, color: [...stop.color] })));
+        actions.setSymbologyMode("Default");
         ui.resetButton.textContent = "Custom";
         ui.resetButton.label = "Custom";
     } else {
@@ -130,9 +131,9 @@ export function handleResetToggle() {
             return false;
         }
 
-        appState.sliderValues = [...appState.lastCustomValues];
-        appState.colorStops = appState.lastCustomStops.map(stop => ({ ...stop, color: [...stop.color] }));
-        appState.symbologyMode = "Custom";
+        actions.setSliderValues([...appState.lastCustomValues]);
+        actions.setColorStops(appState.lastCustomStops.map(stop => ({ ...stop, color: [...stop.color] })));
+        actions.setSymbologyMode("Custom");
         ui.resetButton.textContent = "Default";
         ui.resetButton.label = "Default";
     }
@@ -177,8 +178,8 @@ export function handleRemoveStop() {
         return false;
     }
 
-    appState.sliderValues = appState.sliderValues.filter((_, index) => index !== removeIndex);
-    appState.colorStops = appState.colorStops.filter((_, index) => index !== removeIndex);
+    actions.setSliderValues(appState.sliderValues.filter((_, index) => index !== removeIndex));
+    actions.setColorStops(appState.colorStops.filter((_, index) => index !== removeIndex));
     ui.sliderElement.values = [...appState.sliderValues];
 
     updateRampUI();

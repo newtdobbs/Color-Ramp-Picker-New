@@ -21,6 +21,10 @@ export function setLayer(layer){
     appState.layer = layer;
 }
 
+export function setLayerVisibility(visibility){
+    appState.layer.visibility = visibility;
+}
+
 export function setField(field){
     appState.field = field;
 }
@@ -63,6 +67,10 @@ export function setSymbologyMode(symbologyMode){
 
 export function setDescription(description){
     appState.description = description;
+}
+
+export function setProfile(profile){
+    appState.profile = profile;
 }
 
 export function resetFieldState(){
@@ -121,6 +129,7 @@ export function resetRampState(){
 
 export function resetAppState(){
     appState.stats = null;
+    appState.profile = null;
     appState.description = null;
     appState.sliderValues = null;
     appState.colorStops = null;

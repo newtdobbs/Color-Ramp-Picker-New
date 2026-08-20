@@ -1,3 +1,10 @@
+/**
+ * 
+ * @param {string} name descriptive name for the distribution
+ * @param {array} stopPercentiles array of the color stops as they fall across the data's distribution
+ * @param {string} rationale justification for the given profile 
+ * @returns 
+ */
 function profile(name, stopPercentiles, rationale) {
     return {
         name,
@@ -6,6 +13,11 @@ function profile(name, stopPercentiles, rationale) {
     };
 }
 
+/**
+ * 
+ * @param {dictionary} stats dictionary in app state of the data statistics 
+ * @returns a profile matching the data's distribution
+ */
 export function classifyDistribution(stats) {
     if (!stats) {
         return profile("fallback", [0, 0.25, 0.5, 0.75, 1], "No stats available");

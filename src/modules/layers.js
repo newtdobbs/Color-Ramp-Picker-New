@@ -86,13 +86,8 @@ export function createDropdownForService() {
             // call to createMap if the selection changes
             await createMapForSelectedLayer();
 
-            // console.log('before we create a fields list, this is the map layer', appState.layer);
-
             // re-populating the list of fields, DON'T want to assume that the fields are consistent
             renderFieldList();
         });
     });
-
-    // at the end here, we'll create the map for the main-map div
-    // createMap();
 }
