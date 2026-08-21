@@ -26,7 +26,10 @@ export async function wireEvents(){
     
     ui.inputBox.addEventListener("keydown", await wireInputBox);
     
-    ui.sliderElement.addEventListener('contextmenu', wireSliderRightClick);
+    ui.sliderElement.addEventListener('contextmenu', () => {
+        event.preventDefault(); // abstracted this into here, so that we can re-use wireSliderRightClick() for non right click events
+        wireSliderRightClick();
+    });
     
     wireOutlierChipClick();
 }
@@ -42,9 +45,9 @@ function wireColorPickerApply(){
         .join("|");
 
     // Avoid rebuilding on every click; rebuild only when slider stops actually change.
-    const needsRebuild = // if the slider values change, or if the slider stops move
-        ui.sliderStopDropdown.children.length !== sliderValues.length ||
-        ui.sliderStopDropdown.dataset.valuesSignature !== signature;
+    const needsRebuild = 
+        ui.sliderStopDropdown.children.length !== sliderValues.length || // if the number of slider stops move
+        ui.sliderStopDropdown.dataset.valuesSignature !== signature; // or if the slider stops move, and the signature changes
 
     if (!needsRebuild) {
         return;
@@ -237,22 +240,22 @@ function wireResetButton(){
     // if we're currently using custom symbology, we want to TURN ON the smart mapping defaults
     if (appState.symbologyMode === "Custom") {
         // saving the current custom configuration before overwriting
-        appState.lastCustomValues = [...appState.sliderValues];
-        appState.lastCustomStops = [...appState.colorStops];
+        actions.setLastCustomValues([...appState.sliderValues]);
+        actions.setLastCustomStops([...appState.colorStops]);
 
         // then applying smart mapping defaults
         ui.sliderElement.values = [...appState.defaultValues];
         ui.histogramElement.colorStops = [...appState.defaultStops];
-        appState.sliderValues = [...appState.defaultValues];
-        appState.colorStops = [...appState.defaultStops];
+        actions.setSliderValues([...appState.defaultValues]);
+        actions.setColorStops([...appState.defaultStops]);
 
     // otherwise we're using default symbology, so we want to RESTORE last custom stops before click
     } else {
         if (appState.lastCustomValues && appState.lastCustomStops) {
             ui.sliderElement.values = [...appState.lastCustomValues];
             ui.histogramElement.colorStops = [...appState.lastCustomStops];
-            appState.sliderValues = [...appState.lastCustomValues];
-            appState.colorStops = [...appState.lastCustomStops];
+            actions.setSliderValues([...appState.lastCustomValues]);
+            actions.setColorStops([...appState.lastCustomStops]);
         } else {
             hf.warnUser("No custom configuration stored to restore.");
         }
@@ -263,7 +266,7 @@ function wireResetButton(){
     ui.resetButton.label = appState.symbologyMode;
 
     // and we'll switch the mode to the opposite state
-    appState.symbologyMode = appState.symbologyMode === "Default" ? "Custom" : "Default"; // determining value for current click
+    actions.setSymbologyMode(appState.symbologyMode === "Default" ? "Custom" : "Default"); // determining value for current click
     console.log(`Changed buttom label FROM ${appState.symbologyMode} to ${ui.resetButton.label}`)
 
     console.log(`WE'RE CURRENTLY IN ${appState.symbologyMode} SYMBOLOGY MODE.`);
@@ -278,16 +281,16 @@ export async function wireInputBox(){
 
         // hardcoding a default value --REMOVE THE IF BLOCK FOR DEPLOYMENT
         if (ui.inputBox.value === ""){
-            appState.inputItemID = appState.defaultItemID // MINC
+            actions.setInputItemID(appState.defaultItemID); // defaulting to MINC
         } else {
             const raw = ui.inputBox.value || "";
             const itemIDs = raw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
             const uniqueItemIDs = Array.from(new Set(itemIDs));
-            appState.inputItemID = uniqueItemIDs[0]; // only taking the first ID if multiple are provided
+            actions.setInputItemID(uniqueItemIDs[0]); // only taking the first ID if multiple are provided
         }
 
         // console.log("input AGOL id is", selectedID); // log for debug
-        appState.serviceInfo = await getServiceLayers(appState.inputItemID); // check the layers present in the service
+        actions.setServiceInfo(await getServiceLayers(appState.inputItemID)); // check the layers present in the service
         console.log('service info is', appState.serviceInfo);
 
         // if valid information was attained from the service, we'll update the panel heading and create sublayer dropdown

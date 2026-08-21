@@ -4,6 +4,10 @@ export function setActiveWidget(activeWidget){
     appState.activeWidget = activeWidget;
 }
 
+export function setServiceInfo(serviceInfo){
+    appState.serviceInfo = serviceInfo;
+}
+
 export function setLayerVisibility(visibility){
     appState.layer.visibility = visibility;
 }
@@ -58,4 +62,8 @@ export function setButtons(buttons){
 
 export function setOutliersMode(outlierSide, isSelected){
     appState.outliers[outlierSide] = isSelected ? "Visible" : "Hidden";
+}
+
+export function setInputItemID(inputItemID){
+    appState.inputItemID = inputItemID;
 }

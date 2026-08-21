@@ -1,9 +1,69 @@
 import incrkurtosis from "@stdlib/stats-incr-kurtosis";
 import { appState } from "../state/store";
-import { lowOutliersChip, highOutliersChip } from "./ui";
-import { setOutliersMode } from "../state/actions";
+import { lowOutliersChip, highOutliersChip, sliderStopDropdown } from "./ui";
+import { setOutliersMode, setSliderValues, setColorStops } from "../state/actions";
 import { classifyDistribution } from "../app/ruleset";
 import { setProfile } from "../state/actions";
+import { warnUser } from "../helperFunctions";
+import { addStopAtValue, sliderStopRemove } from "./slider";
+import { warn } from "@esri/arcgis-rest-request";
+import { add } from "mathjs";
+import { updateRampUI } from "../app/rampWorkflow";
+import * as ui from "./ui"
+import { sliderHandler } from "./slider";
+import { updateButtons } from "./renderButtons";
+
+function hideLowOutliersWithBlack() {
+    const cutoff = appState.stats?.lowOutlierCutoff;
+    const stops = Array.isArray(appState.colorStops)
+        ? appState.colorStops.map(stop => ({
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
+            value: stop.value
+        }))
+        : [];
+
+    if (!Number.isFinite(cutoff) || stops.length < 2) {
+        return false;
+    }
+
+    // Prevent repeated deselection from stacking extra black or duplicate inserted colors.
+    const existingFirst = stops[0];
+    if (existingFirst?.value === cutoff && Array.isArray(existingFirst?.color)
+        && existingFirst.color[0] === 0 && existingFirst.color[1] === 0 && existingFirst.color[2] === 0) {
+        return false;
+    }
+
+    if (stops.length >= 8) {
+        warnUser("ArcGIS visual variables only support 8 stops, please remove a stop before filtering outliers.", "warning", true);
+        return false;
+    }
+
+    const originalFirst = stops[0];
+    const nextStop = stops.find((stop, index) => index > 0 && stop.value > cutoff) || stops[1];
+    if (!nextStop || !Number.isFinite(nextStop.value) || nextStop.value <= cutoff) {
+        return false;
+    }
+
+    const midpoint = cutoff + ((nextStop.value - cutoff) / 2);
+    const epsilon = Math.max((nextStop.value - cutoff) / 1000, Number.EPSILON);
+    const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint));
+
+    const nextStops = [...stops];
+    nextStops[0] = { color: [0, 0, 0], value: cutoff };
+    nextStops.splice(1, 0, {
+        color: [...originalFirst.color],
+        value: clampedMidpoint
+    });
+
+    const sortedStops = nextStops.sort((a, b) => a.value - b.value);
+    const sliderValues = sortedStops.map(stop => stop.value);
+
+    ui.sliderElement.values = [...sliderValues];
+    setColorStops(sortedStops);
+    setSliderValues(sliderValues);
+
+    return true;
+}
 
 /**
  * 
@@ -213,41 +273,42 @@ export function wireOutlierChipClick(){
             setOutliersMode(chipName, chip.selected);
             const cutoff = appState.stats[`${chipName}OutlierCutoff`]
             
-            // HIDING STOPS
+            // CHIP NOT SELECTED: HIDING OUTLIERS
             if (!chip.selected){ // if its unselected, we want to hide outliers, injecting black into ends
-                console.log(`Need to hide ${chipName} outliers with cutoff: ${cutoff}`)
                 // HIDING LOW STOPS
-                if (chipName="low"){
-                    // if the first stop goes below the low outlier cutoff, we bring it to the cuttof
-                    if(appState.colorStops[0].value < appState.stats.lowOutlierCutoff){
-                    
-
-                    // otherwise we'll add a stop at the low cutoff of pure black
-                    
-
-                // HIDING HIGH STOPS
-                } else {
-
+                warnUser(`Hiding ${chipName} outliers with cutoff: ${cutoff}`,"warning", true)
+                if (chipName === "low"){
+                    if (hideLowOutliersWithBlack()) {
+                        updateRampUI();
+                    }
+                
+                    // HIDING HIGH STOPS
                 }
-                
-                
-                // injecting black into low outliers first
+                    
+                    
+                    // injecting black into low outliers first
                     // change the value to appState.stats.lowOutlierCutoff
                     // change the color to black
                     //
+
+            // CHIP SELECTED: SHOWING OUTLIERS
+            } else {
+                console.log(`Need to show ${chipName} outliers with cutoff: ${cutoff}`)
+                // SHOWING LOW OUTLIERS 
+                if (chipName === "low"){
+                    // console.log("Need to show low stops")
+                // SHOWING LOW OUTLIERS 
                 } else {
-                    // if the 
-                }
+                    // console.log("Need to show HIGH stops")
+                    
+            }
+            }
                 // then injecting black high outliers
             
-            // SHOWING STOPS
-            } else { // if it is selected, we want to show outliers, restoring color to ends
-                console.log(`Need to show ${chipName} outliers`)
-                // showing low outliers 
-                // 
-            }
+   
             // recalculateStats(); // need to first recalculate stats
             // updateRampUI(); // then update the symbology to reflect
+            console.log("After stop change, app state stops are now", appState.colorStops);
         });
     };
 

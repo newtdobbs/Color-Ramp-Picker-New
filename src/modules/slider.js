@@ -77,31 +77,47 @@ export function syncStopsFromSlider(){
     }));
 }
 
-export function addStopAtValue(newValue){
+/**
+ * 
+ * @param {number} newValue the value at which to add the color stop
+ * @param {color} newColor specfic color to use at the stop, by default will just interpolate surrounding stops 
+ * @returns 
+ */
+export function addStopAtValue(newValue, newColor=null){
+    // guard against erroneous input
     if (typeof newValue !== "number" || Number.isNaN(newValue)) {
         return false;
     }
 
+    // if there's no slider values, or less than 2 color stops we don't do anything
     const values = [...(appState.sliderValues || [])];
     const stops = [...(appState.colorStops || [])];
     if (!values.length || stops.length < 2) {
         return false;
     }
 
-    let insertIndex = values.findIndex(value => value > newValue);
-    if (insertIndex === -1) {
+    // determining WHERE to insert the new value
+    let insertIndex = values.findIndex(value => value > newValue); // we find the slider thumb which was above the button that was clicked
+    if (insertIndex === -1) { // if no slider values were greater than the button, we insert at the end using the .length as the index 
         insertIndex = values.length;
     }
 
     const lowerStop = stops[Math.max(0, insertIndex - 1)] || stops[0];
     const upperStop = stops[Math.min(insertIndex, stops.length - 1)] || stops[stops.length - 1];
     const denom = (upperStop.value - lowerStop.value) || 1;
-    const fraction = (newValue - lowerStop.value) / denom;
-    const color = [
-        Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
-        Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
-        Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
-    ];
+    const fraction = (newValue - lowerStop.value) / denom; // the proportion of the new stop's location between lower and upper stop
+    
+    let color;
+    if(newColor) { // if there is a color provided we'll use it
+        color = newColor;
+    }
+    else { // otherwise we'll interpolate the new stop's color using the fraction
+        color = [
+            Math.round(lowerStop.color[0] + fraction * (upperStop.color[0] - lowerStop.color[0])),
+            Math.round(lowerStop.color[1] + fraction * (upperStop.color[1] - lowerStop.color[1])),
+            Math.round(lowerStop.color[2] + fraction * (upperStop.color[2] - lowerStop.color[2]))
+        ];
+    }
 
     values.splice(insertIndex, 0, newValue);
     stops.splice(insertIndex, 0, { color, value: newValue });
@@ -113,12 +129,13 @@ export function addStopAtValue(newValue){
     return true;
 }
 
-export function sliderStopRemove(event){
-    
-    // preventing default right-click menu from appearing
-    event.preventDefault(); 
-
-    console.log("Context menu right click")
+/**
+ * 
+ * @param {event} event the right click event 
+ * @param {number} removeIndex 
+ * @returns 
+ */
+export function sliderStopRemove(removeIndex=null){
 
     if (typeof ui.sliderElement.activeValue === "number") {
         // preventing user from removing a stop if theres only 2 sliders
@@ -126,15 +143,29 @@ export function sliderStopRemove(event){
             hf.warnUser('Must have at least 2 sliders before removing one')
             return
         } else {
+            // right click on yields no removeIndex 
+            if (!removeIndex){
+                ui.sliderElement.min = appState.sliderValues[1] // we'll reassign the slider UI element's min to the next stop up
+                
+            }
+            // injecting black at the 0th index 
+            // if (removeIndex === 0){
+            //     ui.sliderElement.min =  
+            // }
+            
             // determining WHICH slider handle to remove
-            let removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
-
+            if(removeIndex){
+            } else{
+                removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+            }
+            
             // building new arrays
             const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
             nextSliderValues.splice(removeIndex, 1); // removing the right-clicked slider
-
+            
             const nextColorStops = [...appState.colorStops];
             nextColorStops.splice(removeIndex, 1); // and removing stop associated with the right-clicked slider
+            
 
             actions.setSliderValues(nextSliderValues);
             actions.setColorStops(nextColorStops);
@@ -157,24 +188,7 @@ export function sliderStopRemove(event){
     }
 }
 
-export function removeActiveStop(){
-    const removeIndex = getActiveStopIndex();
-    if (removeIndex === -1) {
-        return false;
-    }
 
-    if (appState.sliderValues.length <= 2) {
-        hf.warnUser("Must have at least 2 sliders before removing one");
-        return false;
-    }
-
-    appState.sliderValues = appState.sliderValues.filter((_, index) => index !== removeIndex);
-    appState.colorStops = appState.colorStops.filter((_, index) => index !== removeIndex);
-    ui.sliderElement.values = [...appState.sliderValues];
-    ui.histogramElement.colorStops = [...appState.colorStops];
-    updateRampUI();
-    return true;
-}
 export function getActiveStopIndex(){
     const activeValue = ui.sliderElement.activeValue;
     if (typeof activeValue !== "number") {
