@@ -114,7 +114,7 @@ export async function initializeDialogForField() {
             field: appState.field.name,
             minValue: appState.stats.min,
             maxValue: appState.stats.max,
-            numBins: Math.min(100, appState.stats.count)
+            numBins: Math.min(100, appState.stats.count) // either use 100 bins, or 1 bin-per observation if there's <100 observations
         });
         console.log("Histogram result", histogramResult)
 

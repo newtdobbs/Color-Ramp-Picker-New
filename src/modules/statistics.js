@@ -65,6 +65,62 @@ function hideLowOutliersWithBlack() {
     return true;
 }
 
+function hideHighOutliersWithBlack(){
+    const cutoff = appState.stats?.highOutlierCutoff;
+    const stops = Array.isArray(appState.colorStops)
+        ? appState.colorStops.map(stop => ({
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
+            value: stop.value
+        }))
+        : [];
+
+    if (!Number.isFinite(cutoff) || stops.length < 2) {
+        return false;
+    }
+
+    const existingFirst = stops[0];
+    if (existingFirst?.value === cutoff && Array.isArray(existingFirst?.color)
+        && existingFirst.color[0] === 0 && existingFirst.color[1] === 0 && existingFirst.color[2] === 0) {
+        return false;
+    }
+
+    if (stops.length >= 8) {
+        warnUser("ArcGIS visual variables only support 8 stops, please remove a stop before filtering outliers.", "warning", true);
+        return false;
+    }
+
+    // NEED TO VERIFY THIS LOGIC HERE
+    const originalLast = stops[stops.lenght - 1];
+    const nextStop = stops.find((stop, index) => index > 0 && stop.value < cutoff) || stops[stops.length - 2]; // think this should be second-to-last
+    if (!nextStop || !Number.isFinite(nextStop.value) || nextStop.value >= cutoff) {
+        return false;
+    }
+    
+    const midpoint = cutoff + ((nextStop.value - cutoff) / 2);
+    const epsilon = Math.max((nextStop.value - cutoff) / 1000, Number.EPSILON);
+    const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint));
+    
+    
+    // NEED TO VERIFY THIS LOGIC HERE
+    const nextStops = [...stops];
+    nextStops[stops.length - 1] = { color: [0, 0, 0], value: cutoff }; // injecting black at the last (length - 1) at the high cutoff balue
+    nextStops.splice(1, 0, {
+        color: [...originalLast.color],
+        value: clampedMidpoint
+    });
+
+    const sortedStops = nextStops.sort((a, b) => a.value - b.value);
+    const sliderValues = sortedStops.map(stop => stop.value);
+
+    ui.sliderElement.values = [...sliderValues];
+    setColorStops(sortedStops);
+    setSliderValues(sliderValues);
+
+    return true;
+}
+
+
+
 /**
  * 
  * @param {array} sortedVals an array of values, sorted ascending
