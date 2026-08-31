@@ -12,7 +12,6 @@ import { wireOutlierChipClick } from "../modules/statistics.js";
 // Role: register all listeners in one place.
 export async function wireEvents(){
 
-    
     ui.actionBar.addEventListener("click", wireActionBarClick);
     
     ui.jsonCopy.addEventListener("click", wireJSONCopyButton);
@@ -313,11 +312,21 @@ export async function wireInputBox(){
     }
 };
 
+function resetStateForFieldSelection(){
+    ui.lowOutliersChip.disabled = true;
+    ui.lowOutliersChip.disabled = true;
+    ui.lowOutliersChip.selected = true;
+    ui.lowOutliersChip.selected = true;
+}
+
 async function wireGenerateButton() {
 	if (!appState.field) {
 		hf.warnUser("Select a field from the fields list");
 		return;
 	}
+
+    resetStateForFieldSelection();
+
 	ui.bottomShell.hidden = false;
 	ui.bottomShell.loading = true;
 	try {

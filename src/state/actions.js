@@ -67,3 +67,7 @@ export function setOutliersMode(outlierSide, isSelected){
 export function setInputItemID(inputItemID){
     appState.inputItemID = inputItemID;
 }
+
+export function clearStateForNewField(){
+    // appState.
+}

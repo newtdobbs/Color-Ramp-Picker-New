@@ -7,7 +7,7 @@ import { setProfile } from "../state/actions";
 import { warnUser } from "../helperFunctions";
 import { addStopAtValue, sliderStopRemove } from "./slider";
 import { warn } from "@esri/arcgis-rest-request";
-import { add } from "mathjs";
+import { add, max } from "mathjs";
 import { updateRampUI } from "../app/rampWorkflow";
 import * as ui from "./ui"
 import { sliderHandler } from "./slider";
@@ -44,12 +44,14 @@ function hideLowOutliersWithBlack() {
         return false;
     }
 
-    const midpoint = cutoff + ((nextStop.value - cutoff) / 2);
-    const epsilon = Math.max((nextStop.value - cutoff) / 1000, Number.EPSILON);
-    const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint));
+    const midpoint = cutoff + ((nextStop.value - cutoff) / 2); // the midpoint between the low cutoff and the next stop
+    const epsilon = Math.max((nextStop.value - cutoff) / 1000, Number.EPSILON); // assigning a safety margin as the max between the difference of the cutoff and the next stop / 1000 and epsilon (2.220446049250313e-16)
+    // using epsilon and min/max guards to keep a buffer between the low cutoff and the next stop's value 
+    const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint)); 
 
     const nextStops = [...stops];
     nextStops[0] = { color: [0, 0, 0], value: cutoff };
+    // inserting color from the original first stop into the new stop found at index 1
     nextStops.splice(1, 0, {
         color: [...originalFirst.color],
         value: clampedMidpoint
@@ -67,20 +69,23 @@ function hideLowOutliersWithBlack() {
 
 function hideHighOutliersWithBlack(){
     const cutoff = appState.stats?.highOutlierCutoff;
+    console.log(`High cutoff: ${cutoff}`)
     const stops = Array.isArray(appState.colorStops)
         ? appState.colorStops.map(stop => ({
             color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
             value: stop.value
         }))
         : [];
+   
 
     if (!Number.isFinite(cutoff) || stops.length < 2) {
         return false;
     }
 
-    const existingFirst = stops[0];
-    if (existingFirst?.value === cutoff && Array.isArray(existingFirst?.color)
-        && existingFirst.color[0] === 0 && existingFirst.color[1] === 0 && existingFirst.color[2] === 0) {
+    const existingLast = stops[stops.length-1];
+
+    if (existingLast?.value === cutoff && Array.isArray(existingLast?.color)
+        && existingLast.color[0] === 0 && existingLast.color[1] === 0 && existingLast.color[2] === 0) {
         return false;
     }
 
@@ -89,27 +94,27 @@ function hideHighOutliersWithBlack(){
         return false;
     }
 
-    // NEED TO VERIFY THIS LOGIC HERE
-    const originalLast = stops[stops.lenght - 1];
-    const nextStop = stops.find((stop, index) => index > 0 && stop.value < cutoff) || stops[stops.length - 2]; // think this should be second-to-last
-    if (!nextStop || !Number.isFinite(nextStop.value) || nextStop.value >= cutoff) {
+    const originalLast = stops[stops.length - 1]; // this grabs the last stop BEFORE we inject black
+    const previousStop = stops.findLast((stop, index) => index < stops.length - 1 && stop.value < cutoff); // the nearest stop below the cutoff
+    if (!previousStop || !Number.isFinite(previousStop.value) || previousStop.value >= cutoff) {
         return false;
     }
     
-    const midpoint = cutoff + ((nextStop.value - cutoff) / 2);
-    const epsilon = Math.max((nextStop.value - cutoff) / 1000, Number.EPSILON);
-    const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint));
-    
-    
-    // NEED TO VERIFY THIS LOGIC HERE
+    const midpoint = cutoff - ((cutoff - previousStop.value) / 2); // midpoint between the high cutoff and the previous stop
+    const epsilon = Math.max((cutoff - previousStop.value) / 1000, Number.EPSILON); // assigning a safety margin as the max between the difference of the cutoff and the next stop / 1000 and epsilon (2.220446049250313e-16)
+    // using epsilon and min/max guards to keep a buffer between high cutoff and previous stop's value
+    const clampedMidpoint = Math.min(cutoff - epsilon, Math.max(previousStop.value + epsilon, midpoint));
+
     const nextStops = [...stops];
-    nextStops[stops.length - 1] = { color: [0, 0, 0], value: cutoff }; // injecting black at the last (length - 1) at the high cutoff balue
-    nextStops.splice(1, 0, {
+    nextStops[stops.length - 1] = { color: [0, 0, 0], value: cutoff }; // injecting black at the high cutoff
+    // inserting color from original last stop directly before the new black stop
+    nextStops.splice(stops.length - 1, 0, {
         color: [...originalLast.color],
         value: clampedMidpoint
     });
 
     const sortedStops = nextStops.sort((a, b) => a.value - b.value);
+    console.log('After injecting black the sorted stops are:', sortedStops);
     const sliderValues = sortedStops.map(stop => stop.value);
 
     ui.sliderElement.values = [...sliderValues];
@@ -339,6 +344,11 @@ export function wireOutlierChipClick(){
                     }
                 
                     // HIDING HIGH STOPS
+                }
+                else {
+                    if(hideHighOutliersWithBlack()){
+                        updateRampUI();
+                    }
                 }
                     
                     
