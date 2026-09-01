@@ -295,14 +295,9 @@ export async function wireInputBox(){
         // if valid information was attained from the service, we'll update the panel heading and create sublayer dropdown
         if (appState.serviceInfo){
             ui.fieldBlock.heading = `Layer: ${appState.serviceInfo.title}`;
-
             createDropdownForService(); // create a dropdown to list the sublayers
-
-        // if no valid info was attained form the service we'll warn the user
-        } else {
-            hf.warnUser(`No valid information attained for the service with the input item ID: ${appState.inputItemID}`);
         }
-
+        
         ui.inputBox.value = ""; // clearing the input dialog box after everything is done
 
         // if a fields list pre-existed, we'll clear it 

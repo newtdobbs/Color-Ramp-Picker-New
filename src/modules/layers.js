@@ -1,28 +1,35 @@
 // Role: AGOL item + service metadata.
 import { appState } from "../state/store";
 import * as ui from "./ui";
-import * as hf from "../helperFunctions";
+import {warnUser} from "../helperFunctions";
 import { createMapForSelectedLayer } from "./map";
 import { renderFieldList } from "./renderFieldList";
 
 const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
 
-/* 
-LOGIC FOR TRAVERSING A LAYER TO GET SUBLAYERS
-*/
+/**
+ * 
+ * @param {string} itemId the string present in the input box when 'enter' is clicked 
+ * @returns dictionary object with layer information
+ */
 export async function getServiceLayers(itemId) {
-    // regex check for AGOL item ID format (32 hex chars)
     
+    // regex check for AGOL item ID format (32 hex chars)
     const idPattern = /^[a-f0-9]{32}$/i;
     if (idPattern.test(itemId)) {
         try{
             const portalItem = new PortalItem({ id: itemId });
             await portalItem.load();
 
-            console.log('portal item title:', portalItem.title)
+            console.log(`portal item ${portalItem.title}`, portalItem)
 
-            // Request the service metadata
+            if(portalItem.type !== "Feature Service"){
+                warnUser("Input item must be of type 'Feature Service', please try again.")
+                return
+            }
+
+            // requesting service metadata
             const serviceUrl = portalItem.url;
             const response = await esriRequest(serviceUrl, {
                 query: { f: "json" }
@@ -38,14 +45,11 @@ export async function getServiceLayers(itemId) {
             };
 
         } catch (error) {
-            // Code to handle the error
-            console.warn(`An error occurred while fetching item ${itemId}, ${error.message}`);
-            hf.warnUser(`An error occurred while fetching item ${itemId}, ${error.message}`);
+            warnUser(`An error occurred while fetching item ${itemId}, ${error.message}`);
             return null;
         }
     } else {
-        console.warn(`ID ${itemId} failed regex format check`);
-        hf.warnUser(`ID ${itemId} failed regex format check`);
+        warnUser(`ID ${itemId} failed regex format check, ArcGIS Online item IDs should be 32 alphanumeric characters.`);
         return null;
     }
 }

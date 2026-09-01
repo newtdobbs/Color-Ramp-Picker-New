@@ -13,6 +13,11 @@ import * as ui from "./ui"
 import { sliderHandler } from "./slider";
 import { updateButtons } from "./renderButtons";
 
+
+/**
+ * function to mask low outliers by injecting black into the end of the distribution, does not change the data distribution 
+ * @returns boolean indicating success/failure of masking outcome
+ */
 function hideLowOutliersWithBlack() {
     const cutoff = appState.stats?.lowOutlierCutoff;
     const stops = Array.isArray(appState.colorStops)
@@ -67,6 +72,10 @@ function hideLowOutliersWithBlack() {
     return true;
 }
 
+/**
+ * function to mask high outliers by injecting black into the end of the distribution, does not change the data distribution 
+ * @returns boolean indicating success/failure of masking
+ */
 function hideHighOutliersWithBlack(){
     const cutoff = appState.stats?.highOutlierCutoff;
     console.log(`High cutoff: ${cutoff}`)
@@ -114,7 +123,6 @@ function hideHighOutliersWithBlack(){
     });
 
     const sortedStops = nextStops.sort((a, b) => a.value - b.value);
-    console.log('After injecting black the sorted stops are:', sortedStops);
     const sliderValues = sortedStops.map(stop => stop.value);
 
     ui.sliderElement.values = [...sliderValues];
@@ -124,7 +132,69 @@ function hideHighOutliersWithBlack(){
     return true;
 }
 
+/**
+ * shows high outliers by removing black and shifting highest color to distribution's maximum
+ * @returns boolean indicating success
+ */
+function showHighOutliers(){
+    // quick guard to make sure outliers are hidden before showing
+    if(appState.outliers.high === "Hidden"){
+        const stops = Array.isArray(appState.colorStops)
+        ? appState.colorStops.map(stop => ({
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
+            value: stop.value
+        }))
+        : [];
 
+        console.log(`Stops BEFORE pop`, appState.colorStops);
+        // removing the last color stop from the array which had the black color 
+        const newStops = stops.slice(0, -1)
+
+        // move what is now the last stop to the end at the max value
+        newStops[newStops.length - 1].value = appState.stats.max;
+
+        const sortedStops = newStops.sort((a, b) => a.value - b.value);
+        const sliderValues = sortedStops.map(stop => stop.value);
+
+        ui.sliderElement.values = [...sliderValues];
+        setColorStops(sortedStops);
+        setSliderValues(sliderValues);
+
+        return true;
+    }
+}
+
+/**
+ * shows low outliers by removing black, and shifting lowest color to the distribution's minimum
+ * @returns boolean indicating success
+ */
+function showLowOutliers(){
+    if(appState.outliers.low === "Hidden"){
+        
+        const stops = Array.isArray(appState.colorStops)
+        ? appState.colorStops.map(stop => ({
+            color: Array.isArray(stop.color) ? [...stop.color] : [0, 0, 0],
+            value: stop.value
+        }))
+        : [];
+
+        console.log('Stops before removing the first')
+        // removing the first stop from the array which had the black color
+        const newStops = stops.slice(1);
+
+        // moving what is now the first stop to the end at the min value
+        newStops[0].value = appState.stats.min;
+
+        const sortedStops = newStops.sort((a, b) => a.value - b.value);
+        const sliderValues = sortedStops.map(stop => stop.value);
+
+        ui.sliderElement.values = [...sliderValues];
+        setColorStops(sortedStops);
+        setSliderValues(sliderValues);
+
+        return true;
+    }
+}
 
 /**
  * 
@@ -331,50 +401,54 @@ export function calculateOutliers(vals) {
 export function wireOutlierChipClick(){
     const logSelection = (chip, chipName) => {
         queueMicrotask(() => {
-            setOutliersMode(chipName, chip.selected);
             const cutoff = appState.stats[`${chipName}OutlierCutoff`]
+            console.log("Click logged for chip:", chipName)
             
             // CHIP NOT SELECTED: HIDING OUTLIERS
             if (!chip.selected){ // if its unselected, we want to hide outliers, injecting black into ends
                 // HIDING LOW STOPS
-                warnUser(`Hiding ${chipName} outliers with cutoff: ${cutoff}`,"warning", true)
+                warnUser(`Hiding ${chipName} outliers with cutoff: ${cutoff.toLocaleString()}`,"warning", true)
                 if (chipName === "low"){
                     if (hideLowOutliersWithBlack()) {
                         updateRampUI();
+                        setOutliersMode(chipName, chip.selected);
                     }
-                
+                    
                     // HIDING HIGH STOPS
                 }
                 else {
                     if(hideHighOutliersWithBlack()){
                         updateRampUI();
+                        setOutliersMode(chipName, chip.selected);
                     }
                 }
                     
-                    
-                    // injecting black into low outliers first
-                    // change the value to appState.stats.lowOutlierCutoff
-                    // change the color to black
-                    //
-
             // CHIP SELECTED: SHOWING OUTLIERS
             } else {
                 console.log(`Need to show ${chipName} outliers with cutoff: ${cutoff}`)
                 // SHOWING LOW OUTLIERS 
                 if (chipName === "low"){
-                    // console.log("Need to show low stops")
-                // SHOWING LOW OUTLIERS 
+                    if(showLowOutliers()){
+                        updateRampUI()
+                        setOutliersMode(chipName, chip.selected)
+                    }
+                // SHOWING HIGH OUTLIERS 
                 } else {
-                    // console.log("Need to show HIGH stops")
-                    
+                    if(showHighOutliers()){
+                        updateRampUI()
+                        setOutliersMode(chipName, chip.selected)
+                    }
+                }
             }
-            }
-                // then injecting black high outliers
+
             
-   
-            // recalculateStats(); // need to first recalculate stats
+
+            // these should be applied regardless of whether we're showing or hiding high or low outliers
             // updateRampUI(); // then update the symbology to reflect
+            // setOutliersMode(chipName, chip.selected)
+
             console.log("After stop change, app state stops are now", appState.colorStops);
+            console.log(`State of ${chipName} outliers:`, appState.outliers[chipName])
         });
     };
 
