@@ -33,6 +33,7 @@ export async function wireEvents(){
     wireOutlierChipClick();
 }
 
+
 function wireColorPickerApply(){
     if (!ui.sliderStopDropdown) {
         return;

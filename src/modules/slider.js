@@ -140,32 +140,18 @@ export function sliderStopRemove(removeIndex=null){
     if (typeof ui.sliderElement.activeValue === "number") {
         // preventing user from removing a stop if theres only 2 sliders
         if (ui.sliderElement.values.length <= 2){
-            hf.warnUser('Must have at least 2 sliders before removing one')
+            hf.warnUser('Must have at least 3 sliders before removing one')
             return
         } else {
             // right click on yields no removeIndex 
-            if (!removeIndex){
-                ui.sliderElement.min = appState.sliderValues[1] // we'll reassign the slider UI element's min to the next stop up
-                
-            }
-            // injecting black at the 0th index 
-            // if (removeIndex === 0){
-            //     ui.sliderElement.min =  
-            // }
-            
-            // determining WHICH slider handle to remove
-            if(removeIndex){
-            } else{
-                removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
-            }
-            
+            const removeIndex = ui.sliderElement.values.findIndex(value => value === ui.sliderElement.activeValue);
+            console.log(`Slider element active value ${ui.sliderElement.activeValue} at index ${removeIndex}`);
             // building new arrays
             const nextSliderValues = [...appState.sliderValues]; // copying the slidervalues
             nextSliderValues.splice(removeIndex, 1); // removing the right-clicked slider
             
             const nextColorStops = [...appState.colorStops];
             nextColorStops.splice(removeIndex, 1); // and removing stop associated with the right-clicked slider
-            
 
             actions.setSliderValues(nextSliderValues);
             actions.setColorStops(nextColorStops);
