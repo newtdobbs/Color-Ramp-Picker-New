@@ -7,6 +7,8 @@ import { initializeDialogForField } from "./fieldWorkflow";
 import { sliderStopRemove } from "../modules/slider.js";
 import { updateRampUI } from "./rampWorkflow.js";
 import { wireOutlierChipClick } from "../modules/statistics.js";
+import { createMapForSelectedLayer } from "../modules/map.js";
+import { renderFieldList } from "../modules/renderFieldList.js";
 
 
 // Role: register all listeners in one place.
@@ -31,8 +33,10 @@ export async function wireEvents(){
     });
     
     wireOutlierChipClick();
-}
 
+    ui.layerCopyButton.addEventListener("calciteSplitButtonPrimaryClick", wireCopySymbologyToSelectedLayer);
+
+}
 
 function wireColorPickerApply(){
     if (!ui.sliderStopDropdown) {
@@ -214,6 +218,10 @@ function wireJSONCopyButton(){
 
 function switchActionBarTab(actionName){
 
+    if (appState.activeWidget === actionName) { // if the matches the currently active tab, we do nothing
+        return
+    }
+
     // First hiding all blocks and making them inactive
     document.querySelectorAll("calcite-action-bar calcite-action[data-action-id]").forEach((actionEl) => {
         actionEl.active = false;
@@ -257,7 +265,7 @@ function wireResetButton(){
             actions.setSliderValues([...appState.lastCustomValues]);
             actions.setColorStops([...appState.lastCustomStops]);
         } else {
-            hf.warnUser("No custom configuration stored to restore.");
+            hf.warnUser("No custom configuration stored to restore.", "success", true, "fast");
         }
     }
 
@@ -308,32 +316,101 @@ export async function wireInputBox(){
     }
 };
 
-function resetStateForFieldSelection(){
+function wireCopySymbologyApply(){
+    if(appState.serviceInfo.layers.length > 1){
+        ui.layerCopyDropdown.innerHTML = ""; // removing any preexisting dropdown elements
+        
+        console.log(`There are ${appState.serviceInfo.layers.length} layers in this feature service:`, appState.serviceInfo.layers)
+        console.log("App state layer selection:", appState.layerSelection)
+        appState.serviceInfo.layers.forEach(layer => {
+            if (layer.name !== appState.layerSelection.name) {
+                const layerCopyDropdownItem = document.createElement("calcite-dropdown-item");
+                layerCopyDropdownItem.label = layer.name;
+                layerCopyDropdownItem.textContent = layer.name;
+                ui.layerCopyDropdown.appendChild(layerCopyDropdownItem); 
+                layerCopyDropdownItem.addEventListener("calciteDropdownItemSelect", () => {
+                    actions.setAlternateLayerToCopy(layer);
+                    console.log("Alternate layer selected:", layer);
+                    layerCopyDropdownItem.selected = !layerCopyDropdownItem.selected; 
+                    ui.layerCopyButton.primaryText = `Copy Symbology to: ${layer.name}`
+                });
+            };
+        });
+    };
+    ui.layerCopyButton.disabled = false;
+    ui.layerCopyButton.addEventListener("calciteSplitButtonPrimaryClick", () => {
+        console.log("Symbology color apply clicked")
+    })
+}
+
+/**
+ * this should function similarly to a generateButton click, resetting description, map, histogram and swatch
+ */
+async function wireCopySymbologyToSelectedLayer(){
+    // guard for if there's no layer selected when copy button is clicked
+    if (!ui.layerCopyDropdown.querySelector("calcite-dropdown-item[selected]")) {
+        hf.warnUser("Please select a layer to copy symbology to.", "success", true, "fast");
+        return;
+    }
+
+    // storying the current color breaks
+    const currentColorBreaks = [...appState.colorStops];
+    console.log("Current color breaks", currentColorBreaks);
+    const currentSliderValues = [...appState.sliderValues];
+    console.log("Current slider values", currentSliderValues);
+    const currentField = appState.field;
+    console.log("Current field", currentField);
+
+    resetAppForFieldSelection();
+    actions.setColorStops(currentColorBreaks);
+    actions.setSliderValues(currentSliderValues);
+
+    
+    actions.setLayerSelection(appState.alternateLayerToCopy); // setting the curent layer to the state selected layer
+    console.log('Selection change to:', appState.layerSelection.name, 'layer info:', appState.layerSelection)
+    ui.layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name}`; 
+
+    await createMapForSelectedLayer(); // call to createMap if selection changes pulling from appState
+
+    renderFieldList(); // re-populating list of fields, not assume that the fields are consistent
+
+    // assign state field before calling wireGenerateButton()
+    console.log("App state layer is currently:", appState.layer)
+    appState.alternateLayerToCopy.fields.forEach(field => { 
+
+    })
+
+    wireGenerateButton();
+}
+
+function resetAppForFieldSelection(){
+
+    actions.clearStateForNewField(); // clearing the state
+
+    // restoring outliers chips to default selection
     ui.lowOutliersChip.disabled = true;
-    ui.lowOutliersChip.disabled = true;
+    ui.highOutliersChip.disabled = true;
     ui.lowOutliersChip.selected = true;
-    ui.lowOutliersChip.selected = true;
+    ui.highOutliersChip.selected = true;
+
 }
 
 async function wireGenerateButton() {
 	if (!appState.field) {
-		hf.warnUser("Select a field from the fields list");
+		hf.warnUser("Select a field from the fields list", "success", true, "fast");
 		return;
 	}
 
-    resetStateForFieldSelection();
+	ui.bottomShell.hidden = !ui.bottomShell.hidden;
+	ui.bottomShell.loading = !ui.bottomShell.loading;
 
-	ui.bottomShell.hidden = false;
-	ui.bottomShell.loading = true;
-	try {
+    try {
 		ui.bottomPanel.heading = `Color Ramp Information for ${appState.field.name} (${appState.field.alias})`;
 		ui.bottomPanel.description = `Selected Layer: ${appState.layer.title}`;
 
-        console.log("Initializing dialog for field")
 		await initializeDialogForField();
-        console.log("DONE initializing dialog") 
 	} catch (error) {
-		console.log("Error generating histogram:", error);
+        hf.warnUser(`Error generating histogram for field ${appState.field.alias}:`, error)
 		ui.bottomPanel.heading = "Error Generating Color Ramp Information";
 	} finally {
 		ui.bottomShell.loading = false;
@@ -341,7 +418,9 @@ async function wireGenerateButton() {
 	}
 	document.querySelector("[data-action-id=color]").disabled = false;
 
-    switchActionBarTab("color");    
+    switchActionBarTab("color");   
+    wireCopySymbologyApply();
+
 }
 
 function wireSliderRightClick(event){

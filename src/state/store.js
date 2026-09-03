@@ -31,5 +31,6 @@ export const appState = {
     inflectionPoints: null, // an array to store inflection values for the current field's distribution
     colorPickerValue: null,
     activeSliderValue: null,
-    profile: ""
+    profile: "",
+    alternateLayerToCopy: null
 }

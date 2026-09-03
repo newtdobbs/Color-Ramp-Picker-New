@@ -12,6 +12,18 @@ export function setLayerVisibility(visibility){
     appState.layer.visibility = visibility;
 }
 
+export function setLayerSelection(layerSelection){
+    appState.layerSelection = layerSelection;
+}
+
+export function setLayer(layer){
+    appState.layer = layer;
+}
+
+export function setField(field){
+    appState.field = field;
+}
+
 export function setStats(stats){
     appState.stats = stats;
 }
@@ -68,6 +80,31 @@ export function setInputItemID(inputItemID){
     appState.inputItemID = inputItemID;
 }
 
+export function setInflectionPoints(inflectionPoints){
+    appState.inflectionPoints = inflectionPoints;
+}
+
+export function setAlternateLayerToCopy(alternateLayerToCopy){
+    appState.alternateLayerToCopy = alternateLayerToCopy; 
+}
+
 export function clearStateForNewField(){
-    // appState.
+    setLayerSelection(null);
+    setLayer(null);
+    setField(null);
+    setStats(null);
+    setDescription(null);
+    setSliderValues(null);
+    setColorStops(null);
+    setButtons(null);
+    setDefaultValues(null);
+    setDefaultStops(null);
+    setLastCustomValues(null);
+    setLastCustomStops(null);
+    setSymbologyMode("Custom"); // custom is default
+    setOutliersMode("low", "Visible")
+    setOutliersMode("high", "Visible")
+    setInflectionPoints(null);
+    setActiveSliderValue(null);
+    setProfile("");
 }

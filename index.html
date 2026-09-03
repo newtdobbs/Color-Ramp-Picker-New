@@ -51,14 +51,18 @@
               </calcite-split-button>
               <calcite-button label="Default" id="reset-button" width="full" disabled>Smart Mapping Defaults</calcite-button>
               <calcite-chip-group label="outliers-group" selection-mode="multiple" scale="s">
-                  <calcite-chip icon="connection-end-left" disabled selected value="low-outliers" scale="s" label="Low Outliers" id="low-outliers-chip">
-                      Low Outliers
-                  </calcite-chip>
-                  <calcite-chip icon="connection-end-right" disabled selected value="high-outliers" scale="s" label="High Outliers" id="high-outliers-chip">
-                      High Outliers
-                  </calcite-chip>
+                <calcite-chip icon="connection-end-left" disabled selected value="low-outliers" scale="s" label="Low Outliers" id="low-outliers-chip">
+                  Low Outliers
+                </calcite-chip>
+                <calcite-chip icon="connection-end-right" disabled selected value="high-outliers" scale="s" label="High Outliers" id="high-outliers-chip">
+                  High Outliers
+                </calcite-chip>
               </calcite-chip-group>
               <calcite-button label="Copy JSON" id="copy-json" width="full" disabled>Copy JSON</calcite-button>
+              <calcite-split-button width="full" primary-text="Copy Symbology to:" id="copy-button" disabled>
+                  <calcite-dropdown-group id="layer-copy-dropdown" selection-mode="single" group-title="Other Layers in Service">
+                  </calcite-dropdown-group>
+              </calcite-split-button>
             </div>
           </calcite-block> 
         
@@ -69,10 +73,12 @@
       <calcite-shell-panel resizable slot="panel-bottom" id="bottom-shell" hidden height="l">
         <!-- <calcite-loader id="bottom-loader"></calcite-loader> -->
         <calcite-panel id="bottom-panel">
-          <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
-            <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal"></arcgis-histogram>
-            <div id="color-swatch" slot="content-end" ></div>
-          </arcgis-slider>  
+          <div id="bottom-panel-content">
+            <arcgis-slider id="color-slider" value-labels-display="always" range-labels-placement="center" layout="horizontal">
+              <arcgis-histogram id="histogram" slot="content-start" color-blending-enabled style="width:100%;max-width:100%;box-sizing:border-box;" layout="horizontal"></arcgis-histogram>
+              <div id="color-swatch" slot="content-end" ></div>
+            </arcgis-slider>  
+          </div>
     </calcite-panel>
   </calcite-shell-panel>
 </calcite-shell>

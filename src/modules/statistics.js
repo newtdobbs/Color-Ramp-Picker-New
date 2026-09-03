@@ -55,7 +55,10 @@ function hideLowOutliersWithBlack() {
     const clampedMidpoint = Math.min(nextStop.value - epsilon, Math.max(cutoff + epsilon, midpoint)); 
 
     const nextStops = [...stops];
-    nextStops[0] = { color: [0, 0, 0], value: cutoff };
+    nextStops[0] = { 
+        color: [originalFirst.color[0] - 60, originalFirst.color[1] - 60, originalFirst.color[2] - 60],
+        value: cutoff
+    };
     // inserting color from the original first stop into the new stop found at index 1
     nextStops.splice(1, 0, {
         color: [...originalFirst.color],
@@ -115,7 +118,10 @@ function hideHighOutliersWithBlack(){
     const clampedMidpoint = Math.min(cutoff - epsilon, Math.max(previousStop.value + epsilon, midpoint));
 
     const nextStops = [...stops];
-    nextStops[stops.length - 1] = { color: [0, 0, 0], value: cutoff }; // injecting black at the high cutoff
+    nextStops[stops.length - 1] = { 
+        color: [originalLast.color[0] - 60, originalLast.color[1] - 60, originalLast.color[2] - 60], 
+        value: cutoff 
+    }; // injecting black at the high cutoff
     // inserting color from original last stop directly before the new black stop
     nextStops.splice(stops.length - 1, 0, {
         color: [...originalLast.color],
@@ -407,46 +413,46 @@ export function wireOutlierChipClick(){
             // CHIP NOT SELECTED: HIDING OUTLIERS
             if (!chip.selected){ // if its unselected, we want to hide outliers, injecting black into ends
                 // HIDING LOW STOPS
-                warnUser(`Hiding ${chipName} outliers with cutoff: ${cutoff.toLocaleString()}`,"warning", true)
                 if (chipName === "low"){
                     if (hideLowOutliersWithBlack()) {
-                        updateRampUI();
-                        setOutliersMode(chipName, chip.selected);
+                        warnUser(`Hiding high outliers above cutoff: ${cutoff.toLocaleString()}`,"success", true, "fast")
+                        // updateRampUI();
+                        // setOutliersMode(chipName, chip.selected);
                     }
                     
                     // HIDING HIGH STOPS
                 }
                 else {
                     if(hideHighOutliersWithBlack()){
-                        updateRampUI();
-                        setOutliersMode(chipName, chip.selected);
+                        warnUser(`Hiding low outliers below cutoff: ${cutoff.toLocaleString()}`,"success", true, "fast")
+                        // updateRampUI();
+                        // setOutliersMode(chipName, chip.selected);
                     }
                 }
-                    
-            // CHIP SELECTED: SHOWING OUTLIERS
+                
+                // CHIP SELECTED: SHOWING OUTLIERS
             } else {
                 console.log(`Need to show ${chipName} outliers with cutoff: ${cutoff}`)
                 // SHOWING LOW OUTLIERS 
                 if (chipName === "low"){
                     if(showLowOutliers()){
-                        updateRampUI()
-                        setOutliersMode(chipName, chip.selected)
+                        warnUser("Restoring purple-green color ramp to full distribution of data.", "success", true, "fast")
+                        // updateRampUI()
+                        // setOutliersMode(chipName, chip.selected)
                     }
-                // SHOWING HIGH OUTLIERS 
+                    // SHOWING HIGH OUTLIERS 
                 } else {
                     if(showHighOutliers()){
-                        updateRampUI()
-                        setOutliersMode(chipName, chip.selected)
+                        warnUser("Restoring purple-green color ramp to full distribution of data.", "success", true, "fast")
+                        // updateRampUI()
+                        // setOutliersMode(chipName, chip.selected)
                     }
                 }
             }
 
-            
-
             // these should be applied regardless of whether we're showing or hiding high or low outliers
-            // updateRampUI(); // then update the symbology to reflect
-            // setOutliersMode(chipName, chip.selected)
-
+            updateRampUI();
+            setOutliersMode(chipName, chip.selected);
             console.log("After stop change, app state stops are now", appState.colorStops);
             console.log(`State of ${chipName} outliers:`, appState.outliers[chipName])
         });
@@ -515,7 +521,7 @@ export function calculateFieldStats(values) {
 
 /**
  * 
- * @param {dictionary} stats dictionary in app state of the data statistics 
+ * @param {dictionary} stats dictionary in app state of the statistics for the data distribution 
  * @returns array of color stops for the smart mapping defaults: 1 sd above and below mean, mean, and the midpoints
  */
 export function buildDefaultStops(stats = appState.stats){
@@ -532,6 +538,11 @@ export function buildDefaultStops(stats = appState.stats){
     ];
 }
 
+/**
+ * 
+ * @param {dictionary} stats dictionary in app state of the statistics for the data distribution 
+ * @returns array of color stops as determined from the data distribution's profile
+ */
 export function buildCustomStops(stats = appState.stats){
     if (!stats) {
         return [];

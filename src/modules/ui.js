@@ -27,3 +27,5 @@ export const jsonCopy = document.getElementById("copy-json");
 export const colorPicker = document.getElementById("color-picker");
 export const actionBar = document.getElementById("action-bar");
 export const innerPanel = document.getElementById("inner-panel");
+export const layerCopyButton = document.getElementById("copy-button");
+export const layerCopyDropdown = document.getElementById("layer-copy-dropdown");

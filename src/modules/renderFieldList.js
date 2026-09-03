@@ -3,6 +3,7 @@ import { appState } from "../state/store";
 import * as ui from "./ui";
 import * as constants from "./constants";
 import * as hf from "../helperFunctions";
+import { setField } from "../state/actions";
 
 export function renderFieldList(){
     ui.fieldsLabel.textContent = "Select a Field";
@@ -30,7 +31,7 @@ export function renderFieldList(){
             fieldsList.appendChild(listItem);
 
             listItem.addEventListener("calciteListItemSelect", async () => {
-                appState.field = appState.field === field ? null : field; // this will allow users to deselect a field without having to remove it from the list
+                setField(appState.field === field ? null : field); // this will allow users to deselect a field without having to remove it from the list
 
                 console.log(`Selected field '${appState.field.alias}' information: ${appState.field}`)
                 // seleecting a field will remove any previous warnings
@@ -43,7 +44,7 @@ export function renderFieldList(){
                 hf.warnUser('Removing field: ', field.alias);
                 // console.log('removing field: ', field.alias); // log for debug
                 if (appState.field.alias === field.alias){
-                    appState.field = null; // if the user removes the currently selected field, we'll clear the state variable
+                    setField(null); // if the user removes the currently selected field, we'll clear the state variable
                     // warnUser('Select a field from the fields list')
                 }
                 listItem.remove(); // removing the list item from the dom

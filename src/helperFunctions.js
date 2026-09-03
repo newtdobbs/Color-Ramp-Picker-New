@@ -48,7 +48,7 @@ export function clamp (val, min, max) {
 
 
 // FUNCTION FOR DIPLAYING A CALCITE WARNING MESSAGE
-export function warnUser(message, kind="warning", autoClose=false){
+export function warnUser(message, kind="warning", autoClose=false, autoCloseDuration="medium"){
   // clear any existing warnings
   const existingAlert = document.querySelector("calcite-alert")
   if(existingAlert) existingAlert.remove(); // clearing any preexisting alerts
@@ -58,6 +58,9 @@ export function warnUser(message, kind="warning", autoClose=false){
   newAlert.open = true;
   newAlert.kind = kind;
   newAlert.autoClose = autoClose;
+  if (autoClose) {
+      newAlert.autoCloseDuration = autoCloseDuration;
+  }
   const title = document.createElement("calcite-alert-message");
   title.textContent = message;
   title.slot = "title";

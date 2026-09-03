@@ -71,3 +71,7 @@ calcite-rating {
   height:var(--bar-height);
   position:absolute;
 }
+
+#bottom-panel-content{
+  max-width: 97.5%;
+}

@@ -3,6 +3,7 @@ import { appState } from "../state/store";
 import * as ui from "./ui";
 import * as constants from "./constants";
 import * as hf from "../helperFunctions";
+import { setLayer } from "../state/actions";
 
 const Map = await $arcgis.import("@arcgis/core/Map.js");
 const MapView = await $arcgis.import("@arcgis/core/views/MapView.js");
@@ -56,7 +57,7 @@ export async function createMapForSelectedLayer() {
         layer.maxScale = 0;
         // console.log('layer to populate in map', layer); // log for debug
         appState.map.add(layer);
-        appState.layer = layer;
+        setLayer(layer);
         appState.layer.maxScale = layer.maxScale;
         const midScale = Math.floor((appState.layer.minScale + appState.layer.maxScale) / 2);
 

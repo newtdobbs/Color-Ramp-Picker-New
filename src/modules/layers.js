@@ -4,6 +4,7 @@ import * as ui from "./ui";
 import {warnUser} from "../helperFunctions";
 import { createMapForSelectedLayer } from "./map";
 import { renderFieldList } from "./renderFieldList";
+import { setLayerSelection } from "../state/actions";
 
 const PortalItem = await $arcgis.import("@arcgis/core/portal/PortalItem.js");
 const esriRequest = await $arcgis.import("@arcgis/core/request.js");
@@ -59,7 +60,7 @@ export function createDropdownForService() {
     ui.layerSelector.placeholder = 'Select a Layer';
 
     if (appState.serviceInfo.layers.length === 1){
-        appState.layerSelection = appState.serviceInfo.layers[0];
+        setLayerSelection(appState.serviceInfo.layers[0]);
         ui.layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name || appState.layerSelection.id}`;
         createMapForSelectedLayer();
         renderFieldList();
@@ -74,7 +75,7 @@ export function createDropdownForService() {
 
         ui.layerSelector.appendChild(layerOption); // adding the item to the autocomplete dropdown
         layerOption.addEventListener("calciteAutocompleteItemSelect", async () => {
-            appState.layerSelection = serviceLayer; // setting the curent layer to the selected layer
+            setLayerSelection(serviceLayer); // setting the curent layer to the selected layer
             console.log('selection change to:', appState.layerSelection.name, 'layer info:', appState.layerSelection)
             ui.layerSelector.placeholder = `Selected Layer: ${appState.layerSelection.name}`; 
 
